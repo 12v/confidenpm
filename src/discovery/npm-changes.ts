@@ -66,7 +66,13 @@ export class NpmChangesFeed {
       if (response.data.results && response.data.results.length > 0) {
         for (const change of response.data.results) {
           // Skip deleted packages and design docs
-          if (change.deleted || !change.id || change.id.startsWith('_design/')) {
+          if (change.deleted) {
+            console.log(`Skipping deleted package: ${change.id}`);
+            continue;
+          }
+
+          if (!change.id || change.id.startsWith('_design/')) {
+            console.log(`Skipping design doc: ${change.id}`);
             continue;
           }
 
@@ -74,6 +80,7 @@ export class NpmChangesFeed {
 
           // Skip if we've already processed this package
           if (this.state.processedPackages.has(packageId)) {
+            console.log(`Skipping already processed package: ${change.id}`);
             continue;
           }
 
