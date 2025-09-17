@@ -23,6 +23,10 @@ permissions:
   contents: write
   issues: write
 
+concurrency:
+  group: npm-scanning-${{ github.event.inputs.package_name || 'batch' }}
+  cancel-in-progress: false
+
 jobs:
   setup:
     runs-on: ubuntu-latest
