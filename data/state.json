@@ -1,0 +1,10 @@
+{
+  "lastSequence": 2494899,
+  "lastDiscovered": "2025-09-17T22:45:49.759Z",
+  "lastScanned": "2025-09-17T22:45:45.714Z",
+  "discoveredPackages": [
+    "vs-deploy@13.0.0",
+    "rendition@35.2.0"
+  ],
+  "scannedPackages": []
+}
