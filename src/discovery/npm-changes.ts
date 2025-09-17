@@ -155,61 +155,20 @@ export class NpmChangesFeed {
   }
 
   async getRecentVersions(hours: number = 1): Promise<PackageInfo[]> {
-    await this.loadState();
+    console.log(`Looking for packages from the last ${hours} hours...`);
 
-    const packages: PackageInfo[] = [];
+    // Just call getLatestChanges() which uses the working changes feed
+    // but filter for packages published in the specified timeframe
+    const allPackages = await this.getLatestChanges();
     const cutoffTime = new Date(Date.now() - hours * 60 * 60 * 1000);
 
-    try {
-      // Use search API to find recently updated packages
-      const response = await axios.get('https://registry.npmjs.org/-/v1/search', {
-        params: {
-          text: 'not:deprecated',
-          size: 100,
-          quality: 0.1,
-          popularity: 0.1,
-          maintenance: 0.8
-        },
-        timeout: 30000
-      });
+    const recentPackages = allPackages.filter(pkg => {
+      if (!pkg.publishedAt) return true; // Include if no publish date
+      const publishDate = new Date(pkg.publishedAt);
+      return publishDate >= cutoffTime;
+    });
 
-      if (response.data.objects) {
-        for (const pkg of response.data.objects) {
-          const packageName = pkg.package.name;
-          const packageVersion = pkg.package.version;
-          const packageId = `${packageName}@${packageVersion}`;
-
-          if (!this.state.processedPackages.has(packageId)) {
-            const publishDate = new Date(pkg.package.date);
-
-            if (publishDate >= cutoffTime) {
-              const packageInfo: PackageInfo = {
-                name: packageName,
-                version: packageVersion,
-                publishedAt: pkg.package.date,
-                publisher: pkg.package.publisher?.username,
-                description: pkg.package.description,
-                repository: pkg.package.links?.repository,
-                dependencies: {},
-                devDependencies: {}
-              };
-
-              packages.push(packageInfo);
-              this.state.processedPackages.add(packageId);
-
-              if (packages.length >= MAX_PACKAGES_PER_RUN) {
-                break;
-              }
-            }
-          }
-        }
-      }
-
-      await this.saveState();
-    } catch (error) {
-      console.error('Error fetching recent versions:', error);
-    }
-
-    return packages;
+    console.log(`Found ${recentPackages.length} packages from the last ${hours} hours`);
+    return recentPackages;
   }
 }

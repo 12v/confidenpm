@@ -5,12 +5,12 @@ on:
     - cron: '15 */2 * * *'  # Run every 2 hours at 15 minutes past
   workflow_dispatch:
     inputs:
-      package_name:
-        description: 'Package name to scan (optional)'
+      package_names:
+        description: 'Package names to scan (comma-separated, e.g. "express,lodash,react")'
         required: false
         type: string
       package_version:
-        description: 'Package version to scan (optional)'
+        description: 'Package version to scan (only applies when scanning single package)'
         required: false
         type: string
       hours_back:
@@ -24,7 +24,7 @@ permissions:
   issues: write
 
 concurrency:
-  group: npm-scanning-${{ github.event.inputs.package_name || 'batch' }}
+  group: npm-scanning
   cancel-in-progress: false
 
 jobs:
@@ -40,10 +40,10 @@ jobs:
       - name: Setup scanning matrix
         id: setup-matrix
         run: |
-          if [ "${{ github.event.inputs.package_name }}" != "" ]; then
-            echo 'matrix={"package":["${{ github.event.inputs.package_name }}"]}' >> $GITHUB_OUTPUT
+          if [ "${{ github.event.inputs.package_names }}" != "" ]; then
+            echo 'matrix={"specific_packages":[1]}' >> $GITHUB_OUTPUT
           else
-            echo 'matrix={"batch":[1,2,3]}' >> $GITHUB_OUTPUT
+            echo 'matrix={"batch":[1]}' >> $GITHUB_OUTPUT
           fi
 
   scan:
@@ -95,11 +95,16 @@ jobs:
           mkdir -p temp
           mkdir -p data
 
-      - name: Scan specific package
-        if: github.event.inputs.package_name != ''
+      - name: Scan specific packages
+        if: matrix.specific_packages
         run: |
-          node dist/index.js scan "${{ github.event.inputs.package_name }}" \
-            ${{ github.event.inputs.package_version && format('--version {0}', github.event.inputs.package_version) || '' }}
+          IFS=',' read -ra PACKAGES <<< "${{ github.event.inputs.package_names }}"
+          for package in "${PACKAGES[@]}"; do
+            package=$(echo "$package" | xargs)  # Trim whitespace
+            echo "Scanning package: $package"
+            node dist/index.js scan "$package" \
+              ${{ github.event.inputs.package_version && format('--version {0}', github.event.inputs.package_version) || '' }}
+          done
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           GITHUB_REPOSITORY: ${{ github.repository }}
@@ -107,7 +112,7 @@ jobs:
           GITHUB_ACTOR: ${{ github.actor }}
 
       - name: Scan recent packages
-        if: github.event.inputs.package_name == ''
+        if: matrix.batch
         run: |
           node dist/index.js scan-recent ${{ github.event.inputs.hours_back || '2' }}
         env:
@@ -123,7 +128,7 @@ jobs:
           sudo rm -rf /tmp/npm-scanner-*
 
       - name: Commit state changes
-        if: github.event.inputs.package_name == ''
+        if: matrix.batch
         run: |
           git config --local user.email "action@github.com"
           git config --local user.name "GitHub Action"
