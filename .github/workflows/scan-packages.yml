@@ -1,0 +1,138 @@
+name: Scan NPM Packages for Security Issues
+
+on:
+  schedule:
+    - cron: '15 */2 * * *'  # Run every 2 hours at 15 minutes past
+  workflow_dispatch:
+    inputs:
+      package_name:
+        description: 'Package name to scan (optional)'
+        required: false
+        type: string
+      package_version:
+        description: 'Package version to scan (optional)'
+        required: false
+        type: string
+      hours_back:
+        description: 'Hours to look back for recent packages'
+        required: false
+        default: '2'
+        type: string
+
+permissions:
+  contents: read
+  issues: write
+
+jobs:
+  setup:
+    runs-on: ubuntu-latest
+    outputs:
+      matrix: ${{ steps.setup-matrix.outputs.matrix }}
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup scanning matrix
+        id: setup-matrix
+        run: |
+          if [ "${{ github.event.inputs.package_name }}" != "" ]; then
+            echo 'matrix={"package":["${{ github.event.inputs.package_name }}"]}' >> $GITHUB_OUTPUT
+          else
+            echo 'matrix={"batch":[1,2,3]}' >> $GITHUB_OUTPUT
+          fi
+
+  scan:
+    needs: setup
+    runs-on: ubuntu-latest
+    strategy:
+      matrix: ${{ fromJson(needs.setup.outputs.matrix) }}
+      fail-fast: false
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+
+      - name: Install system dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y curl
+
+      - name: Install Trivy
+        run: |
+          sudo apt-get install wget apt-transport-https gnupg lsb-release
+          wget -qO - https://aquasecurity.github.io/trivy-repo/deb/public.key | sudo apt-key add -
+          echo "deb https://aquasecurity.github.io/trivy-repo/deb $(lsb_release -sc) main" | sudo tee -a /etc/apt/sources.list.d/trivy.list
+          sudo apt-get update
+          sudo apt-get install trivy
+
+      - name: Install Semgrep
+        run: |
+          python3 -m pip install semgrep
+
+      - name: Install TruffleHog
+        run: |
+          curl -sSfL https://raw.githubusercontent.com/trufflesecurity/trufflehog/main/scripts/install.sh | sh -s -- -b /usr/local/bin
+
+      - name: Install project dependencies
+        run: npm ci
+
+      - name: Build project
+        run: npm run build
+
+      - name: Create temp directories
+        run: |
+          mkdir -p temp
+          mkdir -p data
+
+      - name: Scan specific package
+        if: github.event.inputs.package_name != ''
+        run: |
+          node dist/index.js scan "${{ github.event.inputs.package_name }}" \
+            ${{ github.event.inputs.package_version && format('--version {0}', github.event.inputs.package_version) || '' }}
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GITHUB_REPOSITORY: ${{ github.repository }}
+          GITHUB_REPOSITORY_OWNER: ${{ github.repository_owner }}
+          GITHUB_ACTOR: ${{ github.actor }}
+
+      - name: Scan recent packages
+        if: github.event.inputs.package_name == ''
+        run: |
+          node dist/index.js scan-recent ${{ github.event.inputs.hours_back || '2' }}
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GITHUB_REPOSITORY: ${{ github.repository }}
+          GITHUB_REPOSITORY_OWNER: ${{ github.repository_owner }}
+          GITHUB_ACTOR: ${{ github.actor }}
+
+      - name: Cleanup temporary files
+        if: always()
+        run: |
+          rm -rf temp/*
+          sudo rm -rf /tmp/npm-scanner-*
+
+      - name: Commit state changes
+        if: github.event.inputs.package_name == ''
+        run: |
+          git config --local user.email "action@github.com"
+          git config --local user.name "GitHub Action"
+
+          if [ -f data/state.json ]; then
+            git add data/state.json
+
+            if ! git diff --staged --quiet; then
+              git commit -m "Update scanning state [skip ci]"
+              git push
+            else
+              echo "No state changes to commit"
+            fi
+          else
+            echo "No state file found"
+          fi

@@ -1,0 +1,2 @@
+# This file ensures the data directory is created in git
+# The actual state.json file is ignored but this directory is needed
