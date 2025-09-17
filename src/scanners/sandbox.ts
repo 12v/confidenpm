@@ -4,10 +4,7 @@ import * as tar from 'tar';
 import * as crypto from 'crypto';
 import axios from 'axios';
 import { spawn } from 'child_process';
-import { promisify } from 'util';
 import { PackageInfo } from '../types';
-
-const execAsync = promisify(spawn);
 
 export class SafePackageHandler {
   private tempDir: string;
@@ -63,8 +60,6 @@ export class SafePackageHandler {
         }
       });
 
-      await fs.chmod(extractDir, 0o444);
-
       return extractDir;
     } catch (error) {
       throw new Error(`Failed to extract package: ${error}`);
@@ -97,11 +92,30 @@ export class SafePackageHandler {
   async cleanup(): Promise<void> {
     try {
       if (this.tempDir && this.tempDir.includes('temp')) {
-        await fs.chmod(this.tempDir, 0o755).catch(() => {});
+        // Recursively set permissions to allow deletion
+        await this.makeWritable(this.tempDir);
         await fs.rm(this.tempDir, { recursive: true, force: true });
       }
     } catch (error) {
       console.error('Cleanup error:', error);
+    }
+  }
+
+  private async makeWritable(dir: string): Promise<void> {
+    try {
+      await fs.chmod(dir, 0o755);
+      const entries = await fs.readdir(dir, { withFileTypes: true });
+
+      for (const entry of entries) {
+        const fullPath = path.join(dir, entry.name);
+        if (entry.isDirectory()) {
+          await this.makeWritable(fullPath);
+        } else {
+          await fs.chmod(fullPath, 0o644).catch(() => {});
+        }
+      }
+    } catch (error) {
+      // Ignore permission errors during cleanup
     }
   }
 
@@ -115,7 +129,7 @@ export class SafePackageHandler {
           TMPDIR: this.tempDir
         },
         stdio: ['ignore', 'pipe', 'pipe'],
-        timeout: 120000,
+        timeout: 10000,
         detached: false
       });
 

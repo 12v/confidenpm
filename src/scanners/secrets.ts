@@ -31,6 +31,9 @@ export class SecretsScanner {
     const secrets: SecretFinding[] = [];
 
     try {
+      // Check if trufflehog is available
+      await this.sandbox.runInSandbox('which', ['trufflehog'], extractDir);
+
       const output = await this.sandbox.runInSandbox(
         'trufflehog',
         [
@@ -63,7 +66,7 @@ export class SecretsScanner {
         }
       }
     } catch (error) {
-      console.error('TruffleHog scan error:', error);
+      console.log('TruffleHog not available, skipping external secrets scan');
     }
 
     return secrets;

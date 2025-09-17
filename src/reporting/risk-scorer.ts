@@ -1,4 +1,4 @@
-import { ScanResult, RiskScore, VulnerabilityResult, CodeIssue, SecretFinding, MetadataIssue } from '../types';
+import { RiskScore, VulnerabilityResult, CodeIssue, SecretFinding, MetadataIssue } from '../types';
 
 export class RiskScorer {
   static calculateRiskScore(

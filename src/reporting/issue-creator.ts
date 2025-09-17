@@ -1,5 +1,5 @@
 import { Octokit } from '@octokit/rest';
-import { ScanResult, RiskScore } from '../types';
+import { ScanResult } from '../types';
 
 export class GitHubIssueCreator {
   private octokit: Octokit;

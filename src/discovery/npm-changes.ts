@@ -3,7 +3,7 @@ import * as fs from 'fs/promises';
 import * as path from 'path';
 import { ChangesFeedEntry, PackageInfo, StateData } from '../types';
 
-const CHANGES_FEED_URL = 'https://replicate.npmjs.com/_changes';
+const CHANGES_FEED_URL = 'https://replicate.npmjs.com/registry/_changes';
 const STATE_FILE = path.join(process.cwd(), 'data', 'state.json');
 const BATCH_SIZE = 100;
 const MAX_PACKAGES_PER_RUN = 20;
@@ -57,6 +57,9 @@ export class NpmChangesFeed {
             since: currentSequence,
             limit: BATCH_SIZE,
             include_docs: false
+          },
+          headers: {
+            'npm-replication-opt-in': 'true'
           },
           timeout: 30000
         });
@@ -143,6 +146,9 @@ export class NpmChangesFeed {
           since: this.state.lastSequence,
           limit: 1000,
           include_docs: false
+        },
+        headers: {
+          'npm-replication-opt-in': 'true'
         },
         timeout: 30000
       });

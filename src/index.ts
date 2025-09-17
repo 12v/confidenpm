@@ -100,7 +100,7 @@ class NPMSecurityScanner {
     const secretsScanner = new SecretsScanner(sandbox);
 
     const [vulnerabilities, codeIssues, secrets] = await Promise.all([
-      vulnerabilityScanner.scan(extractDir, packageInfo),
+      vulnerabilityScanner.scan(extractDir),
       staticAnalysisScanner.scan(extractDir),
       secretsScanner.scan(extractDir)
     ]);
@@ -181,7 +181,8 @@ class NPMSecurityScanner {
 }
 
 async function main() {
-  const argv = await yargs(hideBin(process.argv))
+  await yargs(hideBin(process.argv))
+    .version(false)
     .command('discover', 'Discover new packages from npm registry', {}, async () => {
       const scanner = new NPMSecurityScanner();
       await scanner.discover();

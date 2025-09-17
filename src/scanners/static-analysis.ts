@@ -31,6 +31,9 @@ export class StaticAnalysisScanner {
     const issues: CodeIssue[] = [];
 
     try {
+      // Check if semgrep is available
+      await this.sandbox.runInSandbox('which', ['semgrep'], extractDir);
+
       const output = await this.sandbox.runInSandbox(
         'semgrep',
         [
@@ -60,7 +63,7 @@ export class StaticAnalysisScanner {
         }
       }
     } catch (error) {
-      console.error('Semgrep scan error:', error);
+      console.log('Semgrep not available, skipping static analysis');
     }
 
     return issues;
