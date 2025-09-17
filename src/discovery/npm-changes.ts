@@ -1,11 +1,8 @@
 import axios from 'axios';
 import * as fs from 'fs/promises';
 import * as path from 'path';
-import { ChangesFeedEntry, PackageInfo, StateData } from '../types';
-
-const CHANGES_FEED_URL = 'https://replicate.npmjs.com/registry/_changes';
+import { PackageInfo, StateData } from '../types';
 const STATE_FILE = path.join(process.cwd(), 'data', 'state.json');
-const BATCH_SIZE = 100;
 const MAX_PACKAGES_PER_RUN = 20;
 
 export class NpmChangesFeed {
@@ -48,53 +45,62 @@ export class NpmChangesFeed {
     const packagesToProcess = new Map<string, PackageInfo>();
 
     try {
-      let currentSequence = this.state.lastSequence;
-      let hasMore = true;
+      console.log(`Starting changes feed request...`);
 
-      while (hasMore && packagesToProcess.size < MAX_PACKAGES_PER_RUN) {
-        const response = await axios.get(CHANGES_FEED_URL, {
-          params: {
-            since: currentSequence,
-            limit: BATCH_SIZE,
-            include_docs: false
-          },
-          headers: {
-            'npm-replication-opt-in': 'true'
-          },
-          timeout: 30000
-        });
+      // For first run, don't include 'since' parameter to get recent changes
+      const params: any = {
+        limit: 20
+      };
 
-        const results = response.data.results as ChangesFeedEntry[];
+      const response = await axios.get('https://replicate.npmjs.com/registry/_changes', {
+        params,
+        headers: {
+          'npm-replication-opt-in': 'true',
+          'User-Agent': 'npm-security-scanner/1.0'
+        },
+        timeout: 30000
+      });
 
-        if (results.length === 0) {
-          hasMore = false;
-          break;
-        }
+      console.log(`Got ${response.data.results?.length || 0} changes`);
 
-        for (const change of results) {
-          if (!change.deleted && change.id && !change.id.startsWith('_design/')) {
-            const packageId = `${change.id}@latest`;
+      if (response.data.results && response.data.results.length > 0) {
+        for (const change of response.data.results) {
+          // Skip deleted packages and design docs
+          if (change.deleted || !change.id || change.id.startsWith('_design/')) {
+            continue;
+          }
 
-            if (!this.state.processedPackages.has(packageId)) {
-              const packageInfo = await this.fetchPackageInfo(change.id);
-              if (packageInfo) {
-                packagesToProcess.set(packageId, packageInfo);
-                this.state.processedPackages.add(packageId);
+          const packageId = `${change.id}@latest`;
 
-                if (packagesToProcess.size >= MAX_PACKAGES_PER_RUN) {
-                  hasMore = false;
-                  break;
-                }
+          // Skip if we've already processed this package
+          if (this.state.processedPackages.has(packageId)) {
+            continue;
+          }
+
+          console.log(`Processing package: ${change.id}`);
+
+          // Fetch package info
+          const packageInfo = await this.fetchPackageInfo(change.id);
+          if (packageInfo) {
+            const fullPackageId = `${packageInfo.name}@${packageInfo.version}`;
+
+            if (!this.state.processedPackages.has(fullPackageId)) {
+              packagesToProcess.set(fullPackageId, packageInfo);
+              this.state.processedPackages.add(fullPackageId);
+
+              if (packagesToProcess.size >= MAX_PACKAGES_PER_RUN) {
+                break;
               }
             }
           }
-          currentSequence = change.seq;
+
+          // Update sequence number
+          this.state.lastSequence = Math.max(this.state.lastSequence, change.seq);
         }
 
-        this.state.lastSequence = currentSequence;
-
-        if (results.length < BATCH_SIZE) {
-          hasMore = false;
+        // If we got results, update the last sequence
+        if (response.data.last_seq) {
+          this.state.lastSequence = response.data.last_seq;
         }
       }
 
@@ -102,12 +108,19 @@ export class NpmChangesFeed {
       this.state.lastProcessed = new Date().toISOString();
       await this.saveState();
 
-    } catch (error) {
+      console.log(`Found ${packages.length} new packages to scan`);
+
+    } catch (error: any) {
       console.error('Error fetching changes feed:', error);
+      if (error.response) {
+        console.error('Response status:', error.response.status);
+        console.error('Response data:', error.response.data);
+      }
     }
 
     return packages;
   }
+
 
   async fetchPackageInfo(packageName: string): Promise<PackageInfo | null> {
     try {
@@ -141,35 +154,39 @@ export class NpmChangesFeed {
     const cutoffTime = new Date(Date.now() - hours * 60 * 60 * 1000);
 
     try {
-      const response = await axios.get(CHANGES_FEED_URL, {
+      // Use search API to find recently updated packages
+      const response = await axios.get('https://registry.npmjs.org/-/v1/search', {
         params: {
-          since: this.state.lastSequence,
-          limit: 1000,
-          include_docs: false
-        },
-        headers: {
-          'npm-replication-opt-in': 'true'
+          text: 'not:deprecated',
+          size: 100,
+          quality: 0.1,
+          popularity: 0.1,
+          maintenance: 0.8
         },
         timeout: 30000
       });
 
-      const results = response.data.results as ChangesFeedEntry[];
-      const packageNames = new Set<string>();
+      if (response.data.objects) {
+        for (const pkg of response.data.objects) {
+          const packageName = pkg.package.name;
+          const packageVersion = pkg.package.version;
+          const packageId = `${packageName}@${packageVersion}`;
 
-      for (const change of results) {
-        if (!change.deleted && change.id && !change.id.startsWith('_design/')) {
-          packageNames.add(change.id);
-        }
-        this.state.lastSequence = Math.max(this.state.lastSequence, change.seq);
-      }
+          if (!this.state.processedPackages.has(packageId)) {
+            const publishDate = new Date(pkg.package.date);
 
-      for (const packageName of packageNames) {
-        const packageInfo = await this.fetchPackageInfo(packageName);
-        if (packageInfo && packageInfo.publishedAt) {
-          const publishedDate = new Date(packageInfo.publishedAt);
-          if (publishedDate >= cutoffTime) {
-            const packageId = `${packageInfo.name}@${packageInfo.version}`;
-            if (!this.state.processedPackages.has(packageId)) {
+            if (publishDate >= cutoffTime) {
+              const packageInfo: PackageInfo = {
+                name: packageName,
+                version: packageVersion,
+                publishedAt: pkg.package.date,
+                publisher: pkg.package.publisher?.username,
+                description: pkg.package.description,
+                repository: pkg.package.links?.repository,
+                dependencies: {},
+                devDependencies: {}
+              };
+
               packages.push(packageInfo);
               this.state.processedPackages.add(packageId);
 
