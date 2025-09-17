@@ -205,24 +205,19 @@ async function main() {
         await scanner.scanPackage(argv.package as string, argv.version as string);
       }
     )
-    .command('scan-recent [hours]', 'Scan packages published in the last N hours',
-      (yargs) => {
-        return yargs
-          .positional('hours', {
-            describe: 'Number of hours to look back',
-            type: 'number',
-            default: 1
-          });
-      },
-      async (argv) => {
+    .command('scan-pending', 'Scan packages that have been discovered but not yet scanned',
+      {},
+      async () => {
         const scanner = new NPMSecurityScanner();
         const changesFeed = new NpmChangesFeed();
-        const packages = await changesFeed.getRecentVersions(argv.hours as number);
+        const packages = await changesFeed.getPendingScans();
 
         if (packages.length > 0) {
           await scanner.scanBatch(packages);
+          // Mark these packages as scanned
+          await changesFeed.markPackagesScanned(packages);
         } else {
-          console.log('No recent packages found');
+          console.log('No pending packages to scan');
         }
       }
     )

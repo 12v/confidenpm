@@ -68,6 +68,8 @@ export interface ChangesFeedEntry {
 
 export interface StateData {
   lastSequence: number;
-  lastProcessed: string;
-  processedPackages: Set<string>;
+  lastDiscovered: string;
+  lastScanned: string;
+  discoveredPackages: Set<string>;
+  scannedPackages: Set<string>;
 }

@@ -111,10 +111,11 @@ jobs:
           GITHUB_REPOSITORY_OWNER: ${{ github.repository_owner }}
           GITHUB_ACTOR: ${{ github.actor }}
 
-      - name: Scan recent packages
+      - name: Scan pending packages
         if: matrix.batch
         run: |
-          node dist/index.js scan-recent ${{ github.event.inputs.hours_back || '2' }}
+          # Get and scan packages that were discovered but not yet scanned
+          node dist/index.js scan-pending
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           GITHUB_REPOSITORY: ${{ github.repository }}
