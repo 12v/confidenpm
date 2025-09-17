@@ -11,8 +11,6 @@ export class NpmChangesFeed {
   constructor() {
     this.state = {
       lastSequence: 0,
-      lastDiscovered: new Date().toISOString(),
-      lastScanned: new Date().toISOString(),
       discoveredPackages: new Set<string>(),
       scannedPackages: new Set<string>()
     };
@@ -23,8 +21,9 @@ export class NpmChangesFeed {
       const stateData = await fs.readFile(STATE_FILE, 'utf-8');
       const parsed = JSON.parse(stateData);
       this.state = {
-        ...parsed,
-        processedPackages: new Set(parsed.processedPackages || [])
+        lastSequence: parsed.lastSequence || 0,
+        discoveredPackages: new Set(parsed.discoveredPackages || []),
+        scannedPackages: new Set(parsed.scannedPackages || [])
       };
     } catch (error) {
       console.log('No existing state found, starting fresh');
@@ -115,7 +114,6 @@ export class NpmChangesFeed {
       }
 
       packages.push(...packagesToProcess.values());
-      this.state.lastDiscovered = new Date().toISOString();
       await this.saveState();
 
       console.log(`Found ${packages.length} new packages to scan`);
@@ -184,7 +182,6 @@ export class NpmChangesFeed {
       const fullPackageId = `${pkg.name}@${pkg.version}`;
       this.state.scannedPackages.add(fullPackageId);
     }
-    this.state.lastScanned = new Date().toISOString();
     await this.saveState();
   }
 
