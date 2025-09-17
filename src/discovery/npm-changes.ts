@@ -3,7 +3,7 @@ import * as fs from 'fs/promises';
 import * as path from 'path';
 import { PackageInfo, StateData } from '../types';
 const STATE_FILE = path.join(process.cwd(), 'data', 'state.json');
-const MAX_PACKAGES_PER_RUN = 20;
+const MAX_PACKAGES_PER_RUN = 100;
 
 export class NpmChangesFeed {
   private state: StateData;
@@ -51,7 +51,7 @@ export class NpmChangesFeed {
 
       // For first run, don't include 'since' parameter to get recent changes
       const params: any = {
-        limit: 20
+        limit: 100
       };
 
       const response = await axios.get('https://replicate.npmjs.com/registry/_changes', {
