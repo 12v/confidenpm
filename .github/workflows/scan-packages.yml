@@ -2,7 +2,7 @@ name: Scan NPM Packages for Security Issues
 
 on:
   schedule:
-    - cron: '15 */2 * * *'  # Run every 2 hours at 15 minutes past
+    - cron: '*/20 * * * *'  # Run every 20 minutes
   workflow_dispatch:  # Allow manual triggering
 
 permissions:
