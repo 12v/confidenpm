@@ -45,14 +45,17 @@ jobs:
           git config --local user.name "GitHub Action"
 
           if [ -f data/state.json ]; then
+            echo "State file found, committing changes..."
             git add data/state.json
 
-            if ! git diff --staged --quiet; then
+            if git diff --staged --quiet; then
+              echo "No state changes to commit"
+            else
               git commit -m "Update package discovery state [skip ci]"
               git push
-            else
-              echo "No state changes to commit"
+              echo "State successfully committed and pushed"
             fi
           else
-            echo "No state file found"
+            echo "WARNING: No state file found - this may cause duplicate processing"
+            exit 0
           fi

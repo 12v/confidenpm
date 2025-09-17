@@ -108,4 +108,4 @@ public
 .DS_Store
 
 # Scanner specific
-data/state.json
+# data/state.json - Allow committing state for GitHub Actions
