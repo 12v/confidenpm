@@ -1821,3 +1821,7 @@ magnoli-types@1.2.153
 @pipedream/google_my_business@0.2.2
 @coveo/atomic@3.33.3
 @dotenvx/dotenvx-linux-arm64@1.50.0
+@ai-sdk/langchain@1.0.46
+layers-design-system@2.16.1
+@xn-sakina/rml-linux-arm64-musl@2.6.0
+@dotenvx/dotenvx-darwin-x86_64@1.50.0
