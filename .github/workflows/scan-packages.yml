@@ -80,71 +80,82 @@ jobs:
           rm -rf temp/*
           sudo rm -rf /tmp/npm-scanner-*
 
-      - name: Commit scanning state changes (Job ${{ matrix.job_id }})
+      - name: Upload scanning results (Job ${{ matrix.job_id }})
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: scan-results-job-${{ matrix.job_id }}
+          path: data/scanned-packages-new.txt
+          if-no-files-found: ignore
+
+  consolidate:
+    needs: scan
+    runs-on: ubuntu-latest
+    if: always()
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Download all scan results
+        uses: actions/download-artifact@v4
+        with:
+          pattern: scan-results-job-*
+          path: artifacts/
+          merge-multiple: true
+
+      - name: Consolidate scan results
+        run: |
+          echo "Consolidating scan results from all jobs..."
+
+          # Create data directory if it doesn't exist
+          mkdir -p data
+
+          # Count artifacts downloaded
+          artifact_count=$(find artifacts/ -name "scanned-packages-new.txt" | wc -l)
+          echo "Found $artifact_count scan result files"
+
+          if [ $artifact_count -gt 0 ]; then
+            # Combine all new scanned packages
+            cat artifacts/*/scanned-packages-new.txt > data/all-new-scanned.txt 2>/dev/null || true
+
+            # Sort and deduplicate, then append to main file
+            if [ -f data/all-new-scanned.txt ] && [ -s data/all-new-scanned.txt ]; then
+              echo "Processing $(wc -l < data/all-new-scanned.txt) new scanned packages"
+
+              # Create or update the main scanned packages file
+              touch data/scanned-packages.txt
+
+              # Combine existing and new, sort and deduplicate
+              cat data/scanned-packages.txt data/all-new-scanned.txt | sort | uniq > data/scanned-packages-updated.txt
+              mv data/scanned-packages-updated.txt data/scanned-packages.txt
+
+              # Clean up
+              rm -f data/all-new-scanned.txt
+
+              echo "Updated scanned packages file with deduplicated results"
+            else
+              echo "No new packages to add"
+            fi
+          else
+            echo "No scan results found from any job"
+          fi
+
+      - name: Commit consolidated results
         run: |
           git config --local user.email "action@github.com"
           git config --local user.name "GitHub Action"
 
-          if [ -f data/scanned-packages.txt ] || [ -f data/scanned-packages-new.txt ]; then
-            echo "Scanned packages files found, committing changes..."
+          if [ -f data/scanned-packages.txt ]; then
+            git add data/scanned-packages.txt
 
-            # Retry logic for git operations with random delay
-            max_attempts=5
-            attempt=1
-
-            while [ $attempt -le $max_attempts ]; do
-              echo "Attempt $attempt/$max_attempts"
-
-              # Configure git and pull latest changes
-              git config pull.rebase false
-              if git pull origin main; then
-                # Append our new packages to the existing file (deduplication happens in code)
-                if [ -f data/scanned-packages-new.txt ]; then
-                  cat data/scanned-packages-new.txt >> data/scanned-packages.txt
-                  rm -f data/scanned-packages-new.txt
-                fi
-
-                # Stage our changes (only add files that exist)
-                [ -f data/scanned-packages.txt ] && git add data/scanned-packages.txt || true
-                [ -f data/scanned-packages-new.txt ] && git add data/scanned-packages-new.txt || true
-
-                if git diff --staged --quiet; then
-                  echo "No scanning state changes to commit"
-                  break
-                else
-                  if git commit -m "Update scanning state from job ${{ matrix.job_id }} [skip ci]"; then
-                    if git push; then
-                      echo "Scanning state successfully committed and pushed"
-                      break
-                    else
-                      echo "Push failed, retrying..."
-                    fi
-                  else
-                    echo "Commit failed, retrying..."
-                  fi
-                fi
-              else
-                echo "Pull failed, retrying..."
-              fi
-
-              # Exponential backoff with jitter
-              base_delay=$((2 ** (attempt - 1)))
-              jitter=$((RANDOM % 10 + 1))
-              delay=$((base_delay + jitter))
-              # Cap at 60 seconds
-              if [ $delay -gt 60 ]; then
-                delay=60
-              fi
-              echo "Retrying in ${delay} seconds..."
-              sleep $delay
-              attempt=$((attempt + 1))
-            done
-
-            if [ $attempt -gt $max_attempts ]; then
-              echo "Failed to commit scanning state after $max_attempts attempts"
-              exit 1
+            if git diff --staged --quiet; then
+              echo "No changes to commit"
+            else
+              git commit -m "Update scanning state [skip ci]"
+              git push
+              echo "Successfully committed consolidated scan results"
             fi
           else
-            echo "No scanned packages files found - no packages were successfully scanned in this job"
-            exit 0
+            echo "No scanned packages file to commit"
           fi
