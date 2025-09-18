@@ -1792,3 +1792,7 @@ crudclimediator@1.0.0
 @aws-amplify/graphql-function-transformer@3.1.16
 @homefile/components-v2@2.29.1
 @confytome/markdown@1.7.10
+@neofinancial/chrono-mongo-datastore@0.4.0
+@sherpahow/sherpa-sdk@0.0.16
+@use-pico/cls@5.0.34
+react-image-watermark-pro@1.0.0
