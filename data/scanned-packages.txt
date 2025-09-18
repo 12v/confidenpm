@@ -1804,3 +1804,8 @@ drizzle-plus@1.0.0-beta.34
 @aws-amplify/graphql-relational-transformer@3.1.11
 nastyclipboard@1.0.0
 magnoli-types@1.2.153
+@salesforce/lds-adapters-industries-dfo@1.389.2
+@vertical-insure/embedded-offer-react@0.7.2
+@journeyapps/runtime-api@1.5.7
+@xn-sakina/rml-linux-arm64-gnu@2.6.0
+@xn-sakina/rml-wasm@2.6.0
