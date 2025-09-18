@@ -1639,3 +1639,14 @@ stocky-cus-lib@1.0.5
 @coveo/atomic-angular@3.5.1
 @valora/eslint-config-typescript@1.1.39
 dev-parade-orchestra-mcp@1.0.37
+react-native-nitro-fetch@0.1.2
+@chinchillaenterprises/mcp-prospect365@3.0.4
+@firebase/database@1.1.0
+eslint-config-neo@0.12.1
+@telemetryx/sdk@1.0.0-alpha19
+juce-audio-processor@1.0.18
+@transcend-io/consent-manager-ui@4.25.4
+n8n-nodes-signal-cli-rest-api@0.2.0
+react-native-react-wis@2.5.21
+merl.ts@1.0.5
+@dotenvx/dotenvx-linux-x86_64@1.50.0
