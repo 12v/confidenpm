@@ -1706,3 +1706,14 @@ portalapp@1.0.0
 capacitor-clevertap@7.0.0
 @confytome/swagger@1.7.10
 mg-library@1.0.778
+@rocketman/ept@1.0.8-1
+@sigmacomputing/node-embed-sdk@0.2.0
+@firebase/remote-config@0.6.6
+firebase@12.2.1
+@aws-amplify/graphql-maps-to-transformer@4.0.19
+@opencrvs/toolkit@1.8.1-rc.962d2c8
+@infrab4a/connect@5.3.4
+@vpalmisano/webrtcperf@4.4.10
+@rarui/chip@1.1.1
+@confytome/postman@1.7.10
+@dotenvx/dotenvx-darwin-arm64@1.50.0
