@@ -1684,3 +1684,14 @@ globby-cp@1.4.3
 koko-tts@0.2.1
 @confytome/core@1.7.10
 textmode.js@0.2.0
+replane-sdk@0.0.13
+@firebase/analytics-types@0.8.3
+@ai-sdk/vue@2.0.46
+encifher-defi-sdk@1.0.1
+c2cai@0.1.0
+@plastichub/kbot@1.1.23
+@eka-care/ekascribe-ts-sdk@1.5.2
+@veltdev/react@4.5.2-beta.15
+@rarui/select@1.1.1
+@entityauth/auth-client@0.1.7
+@searchability/admin-client@0.0.19
