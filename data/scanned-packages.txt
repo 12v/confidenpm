@@ -1829,3 +1829,7 @@ layers-design-system@2.16.1
 nv-ui-landing-page@1.0.14
 @rarui/button@1.4.1
 @dotenvx/dotenvx-darwin-amd64@1.50.0
+@firebase/app@0.14.2
+@entro314labs/cc-slash-agents@1.0.1
+@use-pico/client@5.0.100
+@rei/dxp-library@1.7.3
