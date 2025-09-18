@@ -1839,3 +1839,4 @@ exodus-framework@2.1.1024
 @iyawoqu/dxxtool_share@3.0.16516
 @salesforce/lds-adapters-industries-gdf-dch@1.389.2
 @rarui/checkbox@1.2.1
+@veltdev/client@4.5.2-beta.15
