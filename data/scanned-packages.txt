@@ -1833,3 +1833,4 @@ nv-ui-landing-page@1.0.14
 @entro314labs/cc-slash-agents@1.0.1
 @use-pico/client@5.0.100
 @rei/dxp-library@1.7.3
+@vandeurenglenn/lite@0.3.0
