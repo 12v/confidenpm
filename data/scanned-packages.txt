@@ -1835,3 +1835,4 @@ nv-ui-landing-page@1.0.14
 @rei/dxp-library@1.7.3
 @vandeurenglenn/lite@0.3.0
 dynamic-labels@1.0.3
+exodus-framework@2.1.1024
