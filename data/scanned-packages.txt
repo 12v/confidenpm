@@ -1825,3 +1825,7 @@ magnoli-types@1.2.153
 layers-design-system@2.16.1
 @xn-sakina/rml-linux-arm64-musl@2.6.0
 @dotenvx/dotenvx-darwin-x86_64@1.50.0
+@firebase/messaging-compat@0.2.23
+nv-ui-landing-page@1.0.14
+@rarui/button@1.4.1
+@dotenvx/dotenvx-darwin-amd64@1.50.0
