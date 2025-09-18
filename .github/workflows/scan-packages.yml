@@ -7,7 +7,7 @@ on:
 
 concurrency:
   group: npm-scanning
-  cancel-in-progress: true
+  cancel-in-progress: false
 
 permissions:
   contents: write
