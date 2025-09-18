@@ -2,7 +2,7 @@ name: Scan NPM Packages for Security Issues
 
 on:
   schedule:
-    - cron: '*/20 * * * *'  # Run every 20 minutes
+    - cron: '*/5 * * * *'  # Run every 5 minutes
   workflow_dispatch:  # Allow manual triggering
 
 permissions:
@@ -10,12 +10,16 @@ permissions:
   issues: write
 
 concurrency:
-  group: npm-scanning
+  group: npm-scanning-${{ matrix.job_id }}
   cancel-in-progress: false
 
 jobs:
   scan:
     runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        job_id: [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20]
+      fail-fast: false
 
     steps:
       - name: Checkout repository
@@ -59,15 +63,16 @@ jobs:
           mkdir -p temp
           mkdir -p data
 
-      - name: Scan pending packages
+      - name: Scan pending packages (Job ${{ matrix.job_id }}/20)
         run: |
           # Get and scan packages that were discovered but not yet scanned
-          node dist/index.js scan-pending
+          node dist/index.js scan-pending --job-id ${{ matrix.job_id }} --total-jobs 20
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           GITHUB_REPOSITORY: ${{ github.repository }}
           GITHUB_REPOSITORY_OWNER: ${{ github.repository_owner }}
           GITHUB_ACTOR: ${{ github.actor }}
+          DISABLE_GITHUB_ISSUES: true
 
       - name: Cleanup temporary files
         if: always()
@@ -75,21 +80,54 @@ jobs:
           rm -rf temp/*
           sudo rm -rf /tmp/npm-scanner-*
 
-      - name: Commit state changes
+      - name: Commit state changes (Job ${{ matrix.job_id }})
         run: |
           git config --local user.email "action@github.com"
           git config --local user.name "GitHub Action"
 
           if [ -f data/state.json ]; then
             echo "State file found, committing changes..."
-            git add data/state.json
 
-            if git diff --staged --quiet; then
-              echo "No state changes to commit"
-            else
-              git commit -m "Update scanning state [skip ci]"
-              git push
-              echo "State successfully committed and pushed"
+            # Retry logic for git operations with random delay
+            max_attempts=5
+            attempt=1
+
+            while [ $attempt -le $max_attempts ]; do
+              echo "Attempt $attempt/$max_attempts"
+
+              # Pull latest changes first
+              if git pull origin main --rebase; then
+                git add data/state.json
+
+                if git diff --staged --quiet; then
+                  echo "No state changes to commit"
+                  break
+                else
+                  if git commit -m "Update scanning state from job ${{ matrix.job_id }} [skip ci]"; then
+                    if git push; then
+                      echo "State successfully committed and pushed"
+                      break
+                    else
+                      echo "Push failed, retrying..."
+                    fi
+                  else
+                    echo "Commit failed, retrying..."
+                  fi
+                fi
+              else
+                echo "Pull failed, retrying..."
+              fi
+
+              # Exponential backoff with jitter (1-30 seconds)
+              delay=$((RANDOM % 30 + 1))
+              echo "Retrying in ${delay} seconds..."
+              sleep $delay
+              attempt=$((attempt + 1))
+            done
+
+            if [ $attempt -gt $max_attempts ]; then
+              echo "Failed to commit after $max_attempts attempts"
+              exit 1
             fi
           else
             echo "WARNING: No state file found - this may cause duplicate processing"

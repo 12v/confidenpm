@@ -167,7 +167,9 @@ class NPMSecurityScanner {
     console.log(`Secrets: ${result.secrets.length}`);
     console.log(`Metadata Issues: ${result.metadataIssues.length}`);
 
-    if (RiskScorer.shouldCreateIssue(result.riskScore)) {
+    if (process.env.DISABLE_GITHUB_ISSUES === 'true') {
+      console.log('🚫 GitHub issue creation disabled');
+    } else if (RiskScorer.shouldCreateIssue(result.riskScore)) {
       if (this.issueCreator) {
         console.log('📝 Creating GitHub issue...');
         await this.issueCreator.createIssueForScanResult(result);
@@ -206,18 +208,45 @@ async function main() {
       }
     )
     .command('scan-pending', 'Scan packages that have been discovered but not yet scanned',
-      {},
-      async () => {
+      (yargs) => {
+        return yargs
+          .option('job-id', {
+            describe: 'Job ID for parallel processing (1-based)',
+            type: 'number',
+            default: 1
+          })
+          .option('total-jobs', {
+            describe: 'Total number of parallel jobs',
+            type: 'number',
+            default: 1
+          });
+      },
+      async (argv) => {
         const scanner = new NPMSecurityScanner();
         const changesFeed = new NpmChangesFeed();
-        const packages = await changesFeed.getPendingScans();
+        const allPackages = await changesFeed.getPendingScans();
+
+        if (allPackages.length === 0) {
+          console.log('No pending packages to scan');
+          return;
+        }
+
+        // Split packages across jobs
+        const jobId = argv.jobId as number;
+        const totalJobs = argv.totalJobs as number;
+        const packagesPerJob = Math.ceil(allPackages.length / totalJobs);
+        const startIndex = (jobId - 1) * packagesPerJob;
+        const endIndex = Math.min(startIndex + packagesPerJob, allPackages.length);
+        const packages = allPackages.slice(startIndex, endIndex);
+
+        console.log(`Job ${jobId}/${totalJobs}: Processing packages ${startIndex + 1}-${endIndex} of ${allPackages.length}`);
 
         if (packages.length > 0) {
           await scanner.scanBatch(packages);
-          // Mark these packages as scanned
-          await changesFeed.markPackagesScanned(packages);
+          // Mark these packages as scanned with retry logic
+          await changesFeed.markPackagesScannedWithRetry(packages);
         } else {
-          console.log('No pending packages to scan');
+          console.log(`No packages assigned to job ${jobId}`);
         }
       }
     )

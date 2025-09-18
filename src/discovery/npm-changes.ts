@@ -3,7 +3,7 @@ import * as fs from 'fs/promises';
 import * as path from 'path';
 import { PackageInfo, StateData } from '../types';
 const STATE_FILE = path.join(process.cwd(), 'data', 'state.json');
-const MAX_PACKAGES_PER_RUN = 100;
+const MAX_PACKAGES_PER_RUN = 10000;
 
 export class NpmChangesFeed {
   private state: StateData;
@@ -50,7 +50,7 @@ export class NpmChangesFeed {
       console.log(`Starting changes feed request...`);
 
       const params: any = {
-        limit: 100
+        limit: 10000
       };
 
       // Include 'since' parameter if we have a lastSequence
@@ -189,108 +189,22 @@ export class NpmChangesFeed {
     await this.saveState();
   }
 
-  // This method is now deprecated and should be removed after updating the workflows
-  async getRecentVersions(hours: number = 1): Promise<PackageInfo[]> {
-    console.log(`Looking for packages from the last ${hours} hours...`);
-
-    const packages: PackageInfo[] = [];
-    const packagesToProcess = new Map<string, PackageInfo>();
-    const cutoffTime = new Date(Date.now() - hours * 60 * 60 * 1000);
-
-    try {
-      // For longer time periods, we need to fetch more changes
-      const limit = Math.min(1000, Math.max(50, hours * 10)); // Scale limit with hours
-      console.log(`Fetching up to ${limit} changes...`);
-
-      const params: any = { limit };
-
-      const response = await axios.get('https://replicate.npmjs.com/registry/_changes', {
-        params,
-        headers: {
-          'npm-replication-opt-in': 'true',
-          'User-Agent': 'npm-security-scanner/1.0'
-        },
-        timeout: 30000
-      });
-
-      console.log(`Got ${response.data.results?.length || 0} changes`);
-
-      if (response.data.results && response.data.results.length > 0) {
-        let deletedCount = 0;
-        let processedCount = 0;
-        let tooOldCount = 0;
-        let noDateCount = 0;
-
-        for (const change of response.data.results) {
-          // Skip deleted packages and design docs
-          if (change.deleted) {
-            deletedCount++;
-            continue;
-          }
-
-          if (!change.id || change.id.startsWith('_design/')) {
-            continue;
-          }
-
-          processedCount++;
-
-          // Fetch package info to check publish date
-          const packageInfo = await this.fetchPackageInfo(change.id);
-          if (packageInfo) {
-            if (!packageInfo.publishedAt) {
-              noDateCount++;
-              if (noDateCount <= 2) {
-                console.log(`Package ${packageInfo.name}@${packageInfo.version} has no publishedAt date, treating as recent`);
-              }
-              // If no publish date, treat as recent (could be a new package)
-              const fullPackageId = `${packageInfo.name}@${packageInfo.version}`;
-              if (!packagesToProcess.has(fullPackageId)) {
-                packagesToProcess.set(fullPackageId, packageInfo);
-                if (packagesToProcess.size >= MAX_PACKAGES_PER_RUN) {
-                  break;
-                }
-              }
-              continue;
-            }
-
-            const publishDate = new Date(packageInfo.publishedAt);
-            const hoursAgo = (Date.now() - publishDate.getTime()) / (1000 * 60 * 60);
-
-            if (publishDate >= cutoffTime) {
-              const fullPackageId = `${packageInfo.name}@${packageInfo.version}`;
-
-              if (!packagesToProcess.has(fullPackageId)) {
-                console.log(`Found recent package: ${packageInfo.name}@${packageInfo.version} (${hoursAgo.toFixed(1)}h ago)`);
-                packagesToProcess.set(fullPackageId, packageInfo);
-
-                if (packagesToProcess.size >= MAX_PACKAGES_PER_RUN) {
-                  break;
-                }
-              }
-            } else {
-              tooOldCount++;
-              if (tooOldCount <= 3) {
-                console.log(`Package ${packageInfo.name}@${packageInfo.version} is too old: ${hoursAgo.toFixed(1)}h ago`);
-              }
-            }
-          }
-
-          // Only check first 50 packages to avoid too much API spam
-          if (processedCount >= 50) {
-            break;
-          }
+  async markPackagesScannedWithRetry(packages: PackageInfo[], maxRetries: number = 3): Promise<void> {
+    for (let attempt = 1; attempt <= maxRetries; attempt++) {
+      try {
+        await this.markPackagesScanned(packages);
+        return;
+      } catch (error) {
+        console.error(`Attempt ${attempt}/${maxRetries} failed to update state:`, error);
+        if (attempt === maxRetries) {
+          throw error;
         }
-
-        console.log(`Summary: ${deletedCount} deleted, ${processedCount} processed, ${tooOldCount} too old, ${noDateCount} no date`);
+        // Exponential backoff with jitter
+        const delay = Math.random() * 1000 * Math.pow(2, attempt);
+        console.log(`Retrying in ${Math.round(delay)}ms...`);
+        await new Promise(resolve => setTimeout(resolve, delay));
       }
-
-      packages.push(...packagesToProcess.values());
-
-    } catch (error) {
-      console.error('Error fetching recent versions:', error);
     }
-
-    console.log(`Found ${packages.length} packages from the last ${hours} hours`);
-    return packages;
   }
+
 }
