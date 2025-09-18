@@ -1809,3 +1809,7 @@ magnoli-types@1.2.153
 @journeyapps/runtime-api@1.5.7
 @xn-sakina/rml-linux-arm64-gnu@2.6.0
 @xn-sakina/rml-wasm@2.6.0
+@salesforce/lds-adapters-platform-content-taxonomy@1.389.2
+@firebase/app-check-compat@0.4.0
+@nimbus-ds/icons@1.13.1
+@corbie.dev/color-convert@0.0.5
