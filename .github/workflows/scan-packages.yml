@@ -94,12 +94,40 @@ jobs:
             while [ $attempt -le $max_attempts ]; do
               echo "Attempt $attempt/$max_attempts"
 
-              # Stage changes before pull
-              git add data/scanning-state.json
+              # First, fetch the latest changes
+              git fetch origin main
 
-              # Pull latest changes with merge strategy (not rebase to avoid unstaged changes issue)
-              if git pull origin main --no-rebase; then
-                # Re-add in case of merge conflicts resolution
+              # Check if we have local changes to the scanning state
+              if git diff --name-only | grep -q "data/scanning-state.json"; then
+                echo "Local changes detected in scanning-state.json"
+
+                # Save current state
+                cp data/scanning-state.json data/scanning-state-local.json
+
+                # Reset to remote state
+                git checkout origin/main -- data/scanning-state.json || true
+
+                # Merge the states using Node.js to ensure proper JSON merging
+                node -e "
+                const fs = require('fs');
+                let remote = { scannedPackages: [] };
+                let local = { scannedPackages: [] };
+
+                try { remote = JSON.parse(fs.readFileSync('data/scanning-state.json', 'utf8')); } catch(e) {}
+                try { local = JSON.parse(fs.readFileSync('data/scanning-state-local.json', 'utf8')); } catch(e) {}
+
+                const merged = new Set([...(remote.scannedPackages || []), ...(local.scannedPackages || [])]);
+                const result = { scannedPackages: Array.from(merged).sort() };
+
+                fs.writeFileSync('data/scanning-state.json', JSON.stringify(result, null, 2));
+                " || echo "Merge script failed, keeping local version"
+
+                rm -f data/scanning-state-local.json
+              fi
+
+              # Pull latest changes
+              if git pull origin main; then
+                # Stage our changes
                 git add data/scanning-state.json
 
                 if git diff --staged --quiet; then

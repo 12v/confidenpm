@@ -130,8 +130,14 @@ export class NpmChangesFeed {
 
           // Fetch package info to get actual name and version
           const packageInfo = await this.fetchPackageInfo(change.id);
-          if (packageInfo) {
+          if (packageInfo && packageInfo.name && packageInfo.version) {
             const fullPackageId = `${packageInfo.name}@${packageInfo.version}`;
+
+            // Validate the package ID is well-formed
+            if (packageInfo.version === 'undefined' || !packageInfo.version) {
+              console.warn(`Skipping package with invalid version: ${change.id} -> ${fullPackageId}`);
+              continue;
+            }
 
             // Skip if we've already discovered this exact version
             if (!this.state.discoveredPackages.has(fullPackageId)) {
@@ -173,6 +179,35 @@ export class NpmChangesFeed {
   }
 
 
+  private parsePackageId(packageId: string): { name: string | null; version: string | null } {
+    // Handle scoped packages (e.g., @scope/package@1.0.0)
+    if (packageId.startsWith('@')) {
+      const parts = packageId.split('@');
+      if (parts.length >= 3) {
+        // @scope/package@version
+        const name = `@${parts[1]}`;
+        const version = parts[2];
+        return { name, version };
+      } else if (parts.length === 2) {
+        // @scope/package (no version)
+        return { name: `@${parts[1]}`, version: null };
+      }
+    } else {
+      // Regular packages (e.g., package@1.0.0)
+      const lastAtIndex = packageId.lastIndexOf('@');
+      if (lastAtIndex > 0) {
+        const name = packageId.substring(0, lastAtIndex);
+        const version = packageId.substring(lastAtIndex + 1);
+        return { name, version };
+      } else if (lastAtIndex === -1) {
+        // No version specified
+        return { name: packageId, version: null };
+      }
+    }
+
+    return { name: null, version: null };
+  }
+
   async fetchPackageInfo(packageName: string): Promise<PackageInfo | null> {
     try {
       const response = await axios.get(
@@ -208,7 +243,14 @@ export class NpmChangesFeed {
     console.log(`Found ${pendingPackages.size} packages pending scan`);
 
     for (const packageId of pendingPackages) {
-      const [name] = packageId.split('@');
+      // Parse package name and version from packageId
+      const { name, version } = this.parsePackageId(packageId);
+
+      if (!name || !version || version === 'undefined') {
+        console.warn(`Skipping malformed package ID: ${packageId}`);
+        continue;
+      }
+
       const packageInfo = await this.fetchPackageInfo(name);
       if (packageInfo) {
         packages.push(packageInfo);
@@ -222,12 +264,22 @@ export class NpmChangesFeed {
   }
 
   async markPackagesScanned(packages: PackageInfo[]): Promise<void> {
+    // Reload the latest state to ensure we don't overwrite concurrent updates
     const scannedPackages = await this.loadScanningState();
+    let hasChanges = false;
+
     for (const pkg of packages) {
       const fullPackageId = `${pkg.name}@${pkg.version}`;
-      scannedPackages.add(fullPackageId);
+      if (!scannedPackages.has(fullPackageId)) {
+        scannedPackages.add(fullPackageId);
+        hasChanges = true;
+      }
     }
-    await this.saveScanningState(scannedPackages);
+
+    // Only save if we actually have new packages to mark as scanned
+    if (hasChanges) {
+      await this.saveScanningState(scannedPackages);
+    }
   }
 
   async markPackagesScannedWithRetry(packages: PackageInfo[], maxRetries: number = 3): Promise<void> {
