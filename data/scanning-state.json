@@ -1,6 +1,9 @@
 {
   "scannedPackages": [
     "anki-card@1.1.2",
-    "latest@undefined"
+    "latest@undefined",
+    "ballerina-core@1.0.222",
+    "react-okcancel@1.0.6",
+    "eat-js-sdk@1.3.0"
   ]
 }
