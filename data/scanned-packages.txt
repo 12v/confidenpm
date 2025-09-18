@@ -1846,3 +1846,4 @@ graphql-auth-transformer@7.2.82
 @xn-sakina/rml-darwin-x64@2.6.0
 scandit-cordova-datacapture-id-aamva-barcode-verification@7.6.1
 @rarui/label@1.1.1
+@dremio/js-sdk@0.25.0
