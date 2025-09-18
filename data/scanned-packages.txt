@@ -1673,3 +1673,14 @@ homebridge-growatt-inversor@1.2.7
 @coveo/shopify@1.8.7
 reliability-ds@0.0.2
 @dotenvx/dotenvx-linux-amd64@1.50.0
+@superblocksteam/ai-service-templates@2.0.3-next.46
+@sigmacomputing/saml2-js@2.0.8
+@firebase/app-types@0.9.3
+@choiceform/core-ai-shared-schema@1.0.5
+globby-cp@1.4.3
+@journeyapps/runtime-build@2.4.10
+@opusdns/api@0.55.0
+@anterior/brrr@0.1.202
+koko-tts@0.2.1
+@confytome/core@1.7.10
+textmode.js@0.2.0
