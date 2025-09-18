@@ -1796,3 +1796,7 @@ crudclimediator@1.0.0
 @sherpahow/sherpa-sdk@0.0.16
 @use-pico/cls@5.0.34
 react-image-watermark-pro@1.0.0
+@gammarers/aws-codepipeline-execution-state-change-notification-stack@2.3.17
+iobroker.tagesschau@0.6.0
+@xn-sakina/rml-win32-x64-msvc@2.6.0
+@dotenvx/dotenvx-windows-amd64@1.50.0
