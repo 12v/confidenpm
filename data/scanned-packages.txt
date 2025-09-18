@@ -1757,3 +1757,15 @@ analytica-frontend-lib@1.1.68
 logdude@0.1.8
 @dotenvx/dotenvx@1.50.0
 @soma-vertical-web/foundations-for-v3@0.0.24
+@salesforce/lds-graphql-parser@1.389.2
+@milkio/cookbook-darwin-x64@1.0.0-beta.69
+@firebase/auth-compat@0.6.0
+@firebase/firestore-types@3.0.3
+create-netsuite-react-app@4.0.3
+mcp-tangent-server@1.0.2
+iw-reviews@1.0.7
+@coveo/headless@3.29.2
+@xn-sakina/rml-win32-arm64-msvc@2.6.0
+@coveo/atomic-react@3.3.7
+8we9dpbzjqjr@2.19.13
+globby-cp@1.4.4
