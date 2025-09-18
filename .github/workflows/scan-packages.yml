@@ -5,6 +5,10 @@ on:
     - cron: '*/5 * * * *'  # Run every 5 minutes
   workflow_dispatch:  # Allow manual triggering
 
+concurrency:
+  group: npm-scanning
+  cancel-in-progress: true
+
 permissions:
   contents: write
   issues: write
@@ -16,9 +20,6 @@ jobs:
       matrix:
         job_id: [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20]
       fail-fast: false
-    concurrency:
-      group: npm-scanning-${{ matrix.job_id }}
-      cancel-in-progress: false
 
     steps:
       - name: Checkout repository
