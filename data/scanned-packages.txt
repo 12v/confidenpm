@@ -1745,3 +1745,15 @@ v3-1-sdk@1.1.21
 graphql-relational-schema-transformer@2.21.34
 @aws-amplify/graphql-maps-to-transformer@4.0.19
 @grapadigital/shared-schemas@1.0.112
+@adminide-stack/s3-admin-server@12.0.4-alpha.170
+@tanstack/react-start-plugin@1.131.47
+@graphql-hive/plugin-aws-sigv4@2.0.4
+@ai-sdk/angular@1.0.46
+@a5c-ai/events@1.15.0
+@soma-vertical-web/foundations-for-v3@0.0.23
+lj-text-area@1.0.1
+analytica-frontend-lib@1.1.68
+@xn-sakina/rml-linux-x64-musl@2.6.0
+logdude@0.1.8
+@dotenvx/dotenvx@1.50.0
+@soma-vertical-web/foundations-for-v3@0.0.24
