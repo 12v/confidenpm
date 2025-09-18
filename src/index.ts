@@ -72,8 +72,9 @@ class NPMSecurityScanner {
     }
   }
 
-  async scanBatch(packages: PackageInfo[]): Promise<void> {
+  async scanBatch(packages: PackageInfo[]): Promise<PackageInfo[]> {
     console.log(`🔎 Scanning batch of ${packages.length} packages...`);
+    const successfullyScanned: PackageInfo[] = [];
 
     for (const pkg of packages) {
       const sandbox = new SafePackageHandler();
@@ -82,12 +83,15 @@ class NPMSecurityScanner {
         console.log(`\nScanning ${pkg.name}@${pkg.version}...`);
         const result = await this.performScan(pkg, sandbox);
         await this.processResults(result);
+        successfullyScanned.push(pkg);
       } catch (error) {
         console.error(`Error scanning ${pkg.name}@${pkg.version}:`, error);
       } finally {
         await sandbox.cleanup();
       }
     }
+
+    return successfullyScanned;
   }
 
   private async performScan(packageInfo: PackageInfo, sandbox: SafePackageHandler): Promise<ScanResult> {
@@ -240,9 +244,14 @@ async function main() {
         console.log(`Job ${jobId}/${totalJobs}: Processing ${packages.length} packages (${packageNumbers.length > 50 ? packageNumbers.substring(0, 50) + '...' : packageNumbers}) of ${allPackages.length} total`);
 
         if (packages.length > 0) {
-          await scanner.scanBatch(packages);
-          // Mark these packages as scanned with retry logic
-          await changesFeed.markPackagesScannedWithRetry(packages);
+          const successfullyScanned = await scanner.scanBatch(packages);
+          // Only mark packages as scanned if they were actually scanned successfully
+          if (successfullyScanned.length > 0) {
+            await changesFeed.markPackagesScannedWithRetry(successfullyScanned);
+            console.log(`Successfully scanned ${successfullyScanned.length}/${packages.length} packages`);
+          } else {
+            console.log(`No packages were successfully scanned out of ${packages.length} attempted`);
+          }
         } else {
           console.log(`No packages assigned to job ${jobId}`);
         }

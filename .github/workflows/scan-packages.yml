@@ -85,8 +85,8 @@ jobs:
           git config --local user.email "action@github.com"
           git config --local user.name "GitHub Action"
 
-          if [ -f data/scanned-packages.txt ]; then
-            echo "Scanned packages file found, committing changes..."
+          if [ -f data/scanned-packages.txt ] || [ -f data/scanned-packages-new.txt ]; then
+            echo "Scanned packages files found, committing changes..."
 
             # Retry logic for git operations with random delay
             max_attempts=5
@@ -104,8 +104,9 @@ jobs:
                   rm -f data/scanned-packages-new.txt
                 fi
 
-                # Stage our changes
-                git add data/scanned-packages.txt
+                # Stage our changes (only add files that exist)
+                [ -f data/scanned-packages.txt ] && git add data/scanned-packages.txt || true
+                [ -f data/scanned-packages-new.txt ] && git add data/scanned-packages-new.txt || true
 
                 if git diff --staged --quiet; then
                   echo "No scanning state changes to commit"
@@ -144,6 +145,6 @@ jobs:
               exit 1
             fi
           else
-            echo "WARNING: No scanned packages file found - this may cause duplicate processing"
+            echo "No scanned packages files found - no packages were successfully scanned in this job"
             exit 0
           fi
