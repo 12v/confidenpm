@@ -45,7 +45,8 @@ jobs:
 
       - name: Install Semgrep
         run: |
-          python3 -m pip install semgrep
+          python3 -m pip install --user semgrep
+          echo "$HOME/.local/bin" >> $GITHUB_PATH
 
       - name: Install TruffleHog
         run: |
