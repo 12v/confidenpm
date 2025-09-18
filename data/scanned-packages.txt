@@ -1650,3 +1650,15 @@ n8n-nodes-signal-cli-rest-api@0.2.0
 react-native-react-wis@2.5.21
 merl.ts@1.0.5
 @dotenvx/dotenvx-linux-x86_64@1.50.0
+@salesforce/lds-default-luvio@1.389.2
+create-instant-app@0.21.18
+@firebase/auth@1.11.0
+jamespot-front-business@1.2.42
+hypercolor@1.0.0
+mpulse-design-system@2.40.1
+dyalogue-call-ui-react@0.1.8
+create-better-t-stack@2.46.4
+@xn-sakina/rml-linux-x64-gnu@2.6.0
+@rarui/textarea@1.1.1
+asnotebook@1.4.3
+eruda-indexeddb@0.1.1
