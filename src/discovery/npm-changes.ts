@@ -258,8 +258,12 @@ export class NpmChangesFeed {
         dependencies: data.dependencies || {},
         devDependencies: data.devDependencies || {}
       };
-    } catch (error) {
-      console.error(`Error fetching package info for ${packageName}:`, error);
+    } catch (error: any) {
+      if (error.response?.status === 404) {
+        console.log(`Package not available: ${packageName}`);
+      } else {
+        console.error(`Error fetching package info for ${packageName}:`, error);
+      }
       return null;
     }
   }
@@ -282,12 +286,21 @@ export class NpmChangesFeed {
         continue;
       }
 
-      const packageInfo = await this.fetchPackageInfo(name);
-      if (packageInfo) {
-        packages.push(packageInfo);
-        if (packages.length >= MAX_PACKAGES_PER_RUN) {
-          break;
-        }
+      // Create package info with the exact version from discovered packages
+      const packageInfo: PackageInfo = {
+        name,
+        version,
+        publishedAt: new Date().toISOString(), // We don't have this info from the text file
+        publisher: undefined,
+        description: undefined,
+        repository: undefined,
+        dependencies: {},
+        devDependencies: {}
+      };
+
+      packages.push(packageInfo);
+      if (packages.length >= MAX_PACKAGES_PER_RUN) {
+        break;
       }
     }
 
