@@ -1813,3 +1813,7 @@ magnoli-types@1.2.153
 @firebase/app-check-compat@0.4.0
 @nimbus-ds/icons@1.13.1
 @corbie.dev/color-convert@0.0.5
+@poap-xyz/poap-sdk@0.15.1
+@dot/log@0.2.1
+@coveo/headless-react@2.5.7
+@dotenvx/dotenvx-linux-armv7l@1.50.0
