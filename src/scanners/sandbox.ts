@@ -14,8 +14,14 @@ export class SafePackageHandler {
   }
 
   async downloadPackage(packageInfo: PackageInfo): Promise<string> {
-    const tarballUrl = `https://registry.npmjs.org/${packageInfo.name}/-/${packageInfo.name}-${packageInfo.version}.tgz`;
-    const tarballPath = path.join(this.tempDir, `${packageInfo.name}-${packageInfo.version}.tgz`);
+    // For scoped packages, we need to handle the URL differently
+    const packageName = packageInfo.name;
+    const tarballName = packageName.startsWith('@')
+      ? packageName.substring(1).replace('/', '-')
+      : packageName;
+
+    const tarballUrl = `https://registry.npmjs.org/${packageName}/-/${tarballName}-${packageInfo.version}.tgz`;
+    const tarballPath = path.join(this.tempDir, `${tarballName}-${packageInfo.version}.tgz`);
 
     await fs.mkdir(this.tempDir, { recursive: true });
 
