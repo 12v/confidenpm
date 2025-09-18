@@ -1784,3 +1784,7 @@ cloner-fetch-handler@1.0.0
 nv-ui-landing-page@1.0.13
 @shopify/ui-extensions@2025.7.1
 rehype-typeset@0.1.0
+@aptos-labs/derived-wallet-ethereum@0.8.0
+@aws-amplify/graphql-transformer-core@3.4.4
+@infrab4a/connect-nestjs@2.3.4
+crudclimediator@1.0.0
