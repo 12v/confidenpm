@@ -1844,3 +1844,5 @@ graphql-auth-transformer@7.2.82
 @aws-amplify/graphql-default-value-transformer@3.1.14
 @salesforce/lds-adapters-industries-fieldset@1.389.2
 @xn-sakina/rml-darwin-x64@2.6.0
+scandit-cordova-datacapture-id-aamva-barcode-verification@7.6.1
+@rarui/label@1.1.1
