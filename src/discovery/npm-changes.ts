@@ -2,8 +2,11 @@ import axios from 'axios';
 import * as fs from 'fs/promises';
 import * as path from 'path';
 import { PackageInfo, StateData } from '../types';
-const DISCOVERY_STATE_FILE = path.join(process.cwd(), 'data', 'discovery-state.json');
-const SCANNING_STATE_FILE = path.join(process.cwd(), 'data', 'scanning-state.json');
+const DISCOVERY_SEQUENCE_FILE = path.join(process.cwd(), 'data', 'last-sequence.txt');
+const DISCOVERED_PACKAGES_FILE = path.join(process.cwd(), 'data', 'discovered-packages.txt');
+const DISCOVERED_PACKAGES_NEW_FILE = path.join(process.cwd(), 'data', 'discovered-packages-new.txt');
+const SCANNED_PACKAGES_FILE = path.join(process.cwd(), 'data', 'scanned-packages.txt');
+const SCANNED_PACKAGES_NEW_FILE = path.join(process.cwd(), 'data', 'scanned-packages-new.txt');
 const MAX_PACKAGES_PER_RUN = 10000;
 
 export class NpmChangesFeed {
@@ -18,23 +21,40 @@ export class NpmChangesFeed {
   }
 
   async loadDiscoveryState(): Promise<void> {
+    const lastSequence = await this.loadLastSequence();
+    const discoveredPackages = await this.loadDiscoveredPackages();
+
+    this.state = {
+      lastSequence,
+      discoveredPackages,
+      scannedPackages: new Set() // Discovery doesn't track scanned packages
+    };
+
+    if (lastSequence === 0) {
+      console.log(`Initialized with current sequence: ${lastSequence}`);
+    }
+  }
+
+  async loadLastSequence(): Promise<number> {
     try {
-      const stateData = await fs.readFile(DISCOVERY_STATE_FILE, 'utf-8');
-      const parsed = JSON.parse(stateData);
-      this.state = {
-        lastSequence: parsed.lastSequence || 0,
-        discoveredPackages: new Set(parsed.discoveredPackages || []),
-        scannedPackages: new Set() // Discovery doesn't track scanned packages
-      };
+      const sequenceData = await fs.readFile(DISCOVERY_SEQUENCE_FILE, 'utf-8');
+      return parseInt(sequenceData.trim(), 10) || 0;
     } catch (error) {
-      console.log('No existing discovery state found, initializing with current sequence');
+      console.log('No existing sequence file found, getting current sequence');
       const currentSequence = await this.getCurrentSequence();
-      this.state = {
-        lastSequence: currentSequence,
-        discoveredPackages: new Set<string>(),
-        scannedPackages: new Set<string>()
-      };
-      console.log(`Initialized with sequence: ${currentSequence}`);
+      await this.saveLastSequence(currentSequence);
+      return currentSequence;
+    }
+  }
+
+  async loadDiscoveredPackages(): Promise<Set<string>> {
+    try {
+      const packagesData = await fs.readFile(DISCOVERED_PACKAGES_FILE, 'utf-8');
+      const packages = packagesData.trim().split('\n').filter(line => line.trim());
+      return new Set(packages);
+    } catch (error) {
+      console.log('No existing discovered packages file found');
+      return new Set();
     }
   }
 
@@ -58,30 +78,36 @@ export class NpmChangesFeed {
 
   async loadScanningState(): Promise<Set<string>> {
     try {
-      const stateData = await fs.readFile(SCANNING_STATE_FILE, 'utf-8');
-      const parsed = JSON.parse(stateData);
-      return new Set(parsed.scannedPackages || []);
+      const stateData = await fs.readFile(SCANNED_PACKAGES_FILE, 'utf-8');
+      const packages = stateData.trim().split('\n').filter(line => line.trim());
+      return new Set(packages);
     } catch (error) {
-      console.log('No existing scanning state found');
+      console.log('No existing scanned packages file found');
       return new Set();
     }
   }
 
   async saveDiscoveryState(): Promise<void> {
-    const stateToSave = {
-      lastSequence: this.state.lastSequence,
-      discoveredPackages: Array.from(this.state.discoveredPackages)
-    };
-    await fs.mkdir(path.dirname(DISCOVERY_STATE_FILE), { recursive: true });
-    await fs.writeFile(DISCOVERY_STATE_FILE, JSON.stringify(stateToSave, null, 2));
+    await this.saveLastSequence(this.state.lastSequence);
+  }
+
+  async saveLastSequence(sequence: number): Promise<void> {
+    await fs.mkdir(path.dirname(DISCOVERY_SEQUENCE_FILE), { recursive: true });
+    await fs.writeFile(DISCOVERY_SEQUENCE_FILE, sequence.toString() + '\n');
+  }
+
+  async appendNewDiscoveredPackages(packages: string[]): Promise<void> {
+    if (packages.length > 0) {
+      await fs.mkdir(path.dirname(DISCOVERED_PACKAGES_NEW_FILE), { recursive: true });
+      const content = packages.join('\n') + '\n';
+      await fs.writeFile(DISCOVERED_PACKAGES_NEW_FILE, content);
+    }
   }
 
   async saveScanningState(scannedPackages: Set<string>): Promise<void> {
-    const stateToSave = {
-      scannedPackages: Array.from(scannedPackages)
-    };
-    await fs.mkdir(path.dirname(SCANNING_STATE_FILE), { recursive: true });
-    await fs.writeFile(SCANNING_STATE_FILE, JSON.stringify(stateToSave, null, 2));
+    const packagesArray = Array.from(scannedPackages).sort();
+    await fs.mkdir(path.dirname(SCANNED_PACKAGES_FILE), { recursive: true });
+    await fs.writeFile(SCANNED_PACKAGES_FILE, packagesArray.join('\n') + '\n');
   }
 
   async getLatestChanges(): Promise<PackageInfo[]> {
@@ -89,6 +115,7 @@ export class NpmChangesFeed {
 
     const packages: PackageInfo[] = [];
     const packagesToProcess = new Map<string, PackageInfo>();
+    const newDiscoveredPackages: string[] = [];
 
     try {
       console.log(`Starting changes feed request...`);
@@ -143,6 +170,7 @@ export class NpmChangesFeed {
             if (!this.state.discoveredPackages.has(fullPackageId)) {
               packagesToProcess.set(fullPackageId, packageInfo);
               this.state.discoveredPackages.add(fullPackageId);
+              newDiscoveredPackages.push(fullPackageId);
 
               if (packagesToProcess.size >= MAX_PACKAGES_PER_RUN) {
                 break;
@@ -163,7 +191,10 @@ export class NpmChangesFeed {
       }
 
       packages.push(...packagesToProcess.values());
+
+      // Save both the sequence state and the new discovered packages
       await this.saveDiscoveryState();
+      await this.appendNewDiscoveredPackages(newDiscoveredPackages);
 
       console.log(`Found ${packages.length} new packages to scan`);
 
@@ -264,22 +295,23 @@ export class NpmChangesFeed {
   }
 
   async markPackagesScanned(packages: PackageInfo[]): Promise<void> {
-    // Reload the latest state to ensure we don't overwrite concurrent updates
-    const scannedPackages = await this.loadScanningState();
-    let hasChanges = false;
+    const newPackages: string[] = [];
 
     for (const pkg of packages) {
       const fullPackageId = `${pkg.name}@${pkg.version}`;
-      if (!scannedPackages.has(fullPackageId)) {
-        scannedPackages.add(fullPackageId);
-        hasChanges = true;
-      }
+      newPackages.push(fullPackageId);
     }
 
-    // Only save if we actually have new packages to mark as scanned
-    if (hasChanges) {
-      await this.saveScanningState(scannedPackages);
+    // Only append if we have new packages
+    if (newPackages.length > 0) {
+      await this.appendNewScannedPackages(newPackages);
     }
+  }
+
+  async appendNewScannedPackages(packages: string[]): Promise<void> {
+    await fs.mkdir(path.dirname(SCANNED_PACKAGES_NEW_FILE), { recursive: true });
+    const content = packages.join('\n') + '\n';
+    await fs.writeFile(SCANNED_PACKAGES_NEW_FILE, content);
   }
 
   async markPackagesScannedWithRetry(packages: PackageInfo[], maxRetries: number = 3): Promise<void> {

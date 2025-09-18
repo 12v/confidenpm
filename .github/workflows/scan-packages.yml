@@ -84,8 +84,8 @@ jobs:
           git config --local user.email "action@github.com"
           git config --local user.name "GitHub Action"
 
-          if [ -f data/scanning-state.json ]; then
-            echo "Scanning state file found, committing changes..."
+          if [ -f data/scanned-packages.txt ]; then
+            echo "Scanned packages file found, committing changes..."
 
             # Retry logic for git operations with random delay
             max_attempts=5
@@ -94,41 +94,17 @@ jobs:
             while [ $attempt -le $max_attempts ]; do
               echo "Attempt $attempt/$max_attempts"
 
-              # First, fetch the latest changes
-              git fetch origin main
-
-              # Check if we have local changes to the scanning state
-              if git diff --name-only | grep -q "data/scanning-state.json"; then
-                echo "Local changes detected in scanning-state.json"
-
-                # Save current state
-                cp data/scanning-state.json data/scanning-state-local.json
-
-                # Reset to remote state
-                git checkout origin/main -- data/scanning-state.json || true
-
-                # Merge the states using Node.js to ensure proper JSON merging
-                node -e "
-                const fs = require('fs');
-                let remote = { scannedPackages: [] };
-                let local = { scannedPackages: [] };
-
-                try { remote = JSON.parse(fs.readFileSync('data/scanning-state.json', 'utf8')); } catch(e) {}
-                try { local = JSON.parse(fs.readFileSync('data/scanning-state-local.json', 'utf8')); } catch(e) {}
-
-                const merged = new Set([...(remote.scannedPackages || []), ...(local.scannedPackages || [])]);
-                const result = { scannedPackages: Array.from(merged).sort() };
-
-                fs.writeFileSync('data/scanning-state.json', JSON.stringify(result, null, 2));
-                " || echo "Merge script failed, keeping local version"
-
-                rm -f data/scanning-state-local.json
-              fi
-
-              # Pull latest changes
+              # Configure git and pull latest changes
+              git config pull.rebase false
               if git pull origin main; then
+                # Append our new packages to the existing file (deduplication happens in code)
+                if [ -f data/scanned-packages-new.txt ]; then
+                  cat data/scanned-packages-new.txt >> data/scanned-packages.txt
+                  rm -f data/scanned-packages-new.txt
+                fi
+
                 # Stage our changes
-                git add data/scanning-state.json
+                git add data/scanned-packages.txt
 
                 if git diff --staged --quiet; then
                   echo "No scanning state changes to commit"
@@ -149,8 +125,14 @@ jobs:
                 echo "Pull failed, retrying..."
               fi
 
-              # Exponential backoff with jitter (1-30 seconds)
-              delay=$((RANDOM % 30 + 1))
+              # Exponential backoff with jitter
+              base_delay=$((2 ** (attempt - 1)))
+              jitter=$((RANDOM % 10 + 1))
+              delay=$((base_delay + jitter))
+              # Cap at 60 seconds
+              if [ $delay -gt 60 ]; then
+                delay=60
+              fi
               echo "Retrying in ${delay} seconds..."
               sleep $delay
               attempt=$((attempt + 1))
@@ -161,6 +143,6 @@ jobs:
               exit 1
             fi
           else
-            echo "WARNING: No scanning state file found - this may cause duplicate processing"
+            echo "WARNING: No scanned packages file found - this may cause duplicate processing"
             exit 0
           fi

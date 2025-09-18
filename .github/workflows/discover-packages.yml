@@ -48,8 +48,8 @@ jobs:
           git config --local user.email "action@github.com"
           git config --local user.name "GitHub Action"
 
-          if [ -f data/discovery-state.json ]; then
-            echo "Discovery state file found, committing changes..."
+          if [ -f data/last-sequence.txt ] || [ -f data/discovered-packages-new.txt ]; then
+            echo "Discovery state files found, committing changes..."
 
             # Retry logic for git operations with random delay
             max_attempts=5
@@ -58,9 +58,17 @@ jobs:
             while [ $attempt -le $max_attempts ]; do
               echo "Attempt $attempt/$max_attempts"
 
-              # Pull latest changes first
-              if git pull origin main --no-rebase; then
-                git add data/discovery-state.json
+              # Configure git and pull latest changes first
+              git config pull.rebase false
+              if git pull origin main; then
+                # Append new discovered packages to the main file
+                if [ -f data/discovered-packages-new.txt ]; then
+                  cat data/discovered-packages-new.txt >> data/discovered-packages.txt
+                  rm -f data/discovered-packages-new.txt
+                fi
+
+                # Stage changes
+                git add data/last-sequence.txt data/discovered-packages.txt
 
                 if git diff --staged --quiet; then
                   echo "No discovery state changes to commit"
@@ -81,8 +89,14 @@ jobs:
                 echo "Pull failed, retrying..."
               fi
 
-              # Exponential backoff with jitter (1-30 seconds)
-              delay=$((RANDOM % 30 + 1))
+              # Exponential backoff with jitter
+              base_delay=$((2 ** (attempt - 1)))
+              jitter=$((RANDOM % 10 + 1))
+              delay=$((base_delay + jitter))
+              # Cap at 60 seconds
+              if [ $delay -gt 60 ]; then
+                delay=60
+              fi
               echo "Retrying in ${delay} seconds..."
               sleep $delay
               attempt=$((attempt + 1))
@@ -93,6 +107,6 @@ jobs:
               exit 1
             fi
           else
-            echo "WARNING: No discovery state file found - this may cause duplicate processing"
+            echo "WARNING: No discovery state files found - this may cause duplicate processing"
             exit 0
           fi
