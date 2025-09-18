@@ -1695,3 +1695,14 @@ c2cai@0.1.0
 @rarui/select@1.1.1
 @entityauth/auth-client@0.1.7
 @searchability/admin-client@0.0.19
+@salesforce/lds-adapters-service-network-data-category@1.389.2
+@santillana-ai/create-tutor-app@1.0.1
+@firebase/remote-config-types@0.4.0
+directual-web-components@3.11.230
+@aws-amplify/graphql-transformer@2.3.4
+@labfs/create-init@1.1.0
+portalapp@1.0.0
+@sineways/react-tablefront@0.1.0-alpha.16
+capacitor-clevertap@7.0.0
+@confytome/swagger@1.7.10
+mg-library@1.0.778
