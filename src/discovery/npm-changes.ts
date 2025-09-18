@@ -49,10 +49,14 @@ export class NpmChangesFeed {
     try {
       console.log(`Starting changes feed request...`);
 
-      // For first run, don't include 'since' parameter to get recent changes
       const params: any = {
         limit: 100
       };
+
+      // Include 'since' parameter if we have a lastSequence
+      if (this.state.lastSequence > 0) {
+        params.since = this.state.lastSequence;
+      }
 
       const response = await axios.get('https://replicate.npmjs.com/registry/_changes', {
         params,
