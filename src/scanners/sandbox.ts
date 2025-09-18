@@ -17,7 +17,7 @@ export class SafePackageHandler {
     // For scoped packages, we need to handle the URL differently
     const packageName = packageInfo.name;
     const tarballName = packageName.startsWith('@')
-      ? packageName.substring(1).replace('/', '-')
+      ? packageName.split('/')[1] // Just the package name after the slash
       : packageName;
 
     const tarballUrl = `https://registry.npmjs.org/${packageName}/-/${tarballName}-${packageInfo.version}.tgz`;
