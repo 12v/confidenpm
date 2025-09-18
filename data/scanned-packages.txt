@@ -1817,3 +1817,7 @@ magnoli-types@1.2.153
 @dot/log@0.2.1
 @coveo/headless-react@2.5.7
 @dotenvx/dotenvx-linux-armv7l@1.50.0
+@gammarers/aws-codesuite-state-change-detection-event-rules@2.2.22
+@pipedream/google_my_business@0.2.2
+@coveo/atomic@3.33.3
+@dotenvx/dotenvx-linux-arm64@1.50.0
