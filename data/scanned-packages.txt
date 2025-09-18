@@ -1717,3 +1717,14 @@ firebase@12.2.1
 @rarui/chip@1.1.1
 @confytome/postman@1.7.10
 @dotenvx/dotenvx-darwin-arm64@1.50.0
+@salesforce/lds-adapters-analytics-unifiedanalytics@1.389.2
+joist-driver-bun-pg@1.269.0
+@remcostoeten/drizzleasy@0.1.0
+@firebase/installations-types@0.5.3
+iw-reviews@1.0.6
+@rkh-ms/classify-lib@1.0.139
+lombongo-api-client@0.0.125
+@aion2hub/shared-queue-utils@1.0.10
+@xn-sakina/rml-linux-arm-gnueabihf@2.6.0
+c2cai@0.1.4
+@juspay/yama@1.4.1
