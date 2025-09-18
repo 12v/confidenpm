@@ -1800,3 +1800,7 @@ react-image-watermark-pro@1.0.0
 iobroker.tagesschau@0.6.0
 @xn-sakina/rml-win32-x64-msvc@2.6.0
 @dotenvx/dotenvx-windows-amd64@1.50.0
+drizzle-plus@1.0.0-beta.34
+@aws-amplify/graphql-relational-transformer@3.1.11
+nastyclipboard@1.0.0
+magnoli-types@1.2.153
