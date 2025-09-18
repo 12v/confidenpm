@@ -2,7 +2,8 @@ import axios from 'axios';
 import * as fs from 'fs/promises';
 import * as path from 'path';
 import { PackageInfo, StateData } from '../types';
-const STATE_FILE = path.join(process.cwd(), 'data', 'state.json');
+const DISCOVERY_STATE_FILE = path.join(process.cwd(), 'data', 'discovery-state.json');
+const SCANNING_STATE_FILE = path.join(process.cwd(), 'data', 'scanning-state.json');
 const MAX_PACKAGES_PER_RUN = 10000;
 
 export class NpmChangesFeed {
@@ -16,32 +17,75 @@ export class NpmChangesFeed {
     };
   }
 
-  async loadState(): Promise<void> {
+  async loadDiscoveryState(): Promise<void> {
     try {
-      const stateData = await fs.readFile(STATE_FILE, 'utf-8');
+      const stateData = await fs.readFile(DISCOVERY_STATE_FILE, 'utf-8');
       const parsed = JSON.parse(stateData);
       this.state = {
         lastSequence: parsed.lastSequence || 0,
         discoveredPackages: new Set(parsed.discoveredPackages || []),
-        scannedPackages: new Set(parsed.scannedPackages || [])
+        scannedPackages: new Set() // Discovery doesn't track scanned packages
       };
     } catch (error) {
-      console.log('No existing state found, starting fresh');
+      console.log('No existing discovery state found, initializing with current sequence');
+      const currentSequence = await this.getCurrentSequence();
+      this.state = {
+        lastSequence: currentSequence,
+        discoveredPackages: new Set<string>(),
+        scannedPackages: new Set<string>()
+      };
+      console.log(`Initialized with sequence: ${currentSequence}`);
     }
   }
 
-  async saveState(): Promise<void> {
+  async getCurrentSequence(): Promise<number> {
+    try {
+      const response = await axios.get('https://replicate.npmjs.com/registry/_changes', {
+        params: { descending: true, limit: 1 },
+        headers: {
+          'npm-replication-opt-in': 'true',
+          'User-Agent': 'npm-security-scanner/1.0'
+        },
+        timeout: 10000
+      });
+
+      return response.data.last_seq || 0;
+    } catch (error) {
+      console.error('Error fetching current sequence, defaulting to 0:', error);
+      return 0;
+    }
+  }
+
+  async loadScanningState(): Promise<Set<string>> {
+    try {
+      const stateData = await fs.readFile(SCANNING_STATE_FILE, 'utf-8');
+      const parsed = JSON.parse(stateData);
+      return new Set(parsed.scannedPackages || []);
+    } catch (error) {
+      console.log('No existing scanning state found');
+      return new Set();
+    }
+  }
+
+  async saveDiscoveryState(): Promise<void> {
     const stateToSave = {
-      ...this.state,
-      discoveredPackages: Array.from(this.state.discoveredPackages),
-      scannedPackages: Array.from(this.state.scannedPackages)
+      lastSequence: this.state.lastSequence,
+      discoveredPackages: Array.from(this.state.discoveredPackages)
     };
-    await fs.mkdir(path.dirname(STATE_FILE), { recursive: true });
-    await fs.writeFile(STATE_FILE, JSON.stringify(stateToSave, null, 2));
+    await fs.mkdir(path.dirname(DISCOVERY_STATE_FILE), { recursive: true });
+    await fs.writeFile(DISCOVERY_STATE_FILE, JSON.stringify(stateToSave, null, 2));
+  }
+
+  async saveScanningState(scannedPackages: Set<string>): Promise<void> {
+    const stateToSave = {
+      scannedPackages: Array.from(scannedPackages)
+    };
+    await fs.mkdir(path.dirname(SCANNING_STATE_FILE), { recursive: true });
+    await fs.writeFile(SCANNING_STATE_FILE, JSON.stringify(stateToSave, null, 2));
   }
 
   async getLatestChanges(): Promise<PackageInfo[]> {
-    await this.loadState();
+    await this.loadDiscoveryState();
 
     const packages: PackageInfo[] = [];
     const packagesToProcess = new Map<string, PackageInfo>();
@@ -82,21 +126,14 @@ export class NpmChangesFeed {
             continue;
           }
 
-          const packageId = `${change.id}@latest`;
-
-          // Skip if we've already discovered this package
-          if (this.state.discoveredPackages.has(packageId)) {
-            console.log(`Skipping already discovered package: ${change.id}`);
-            continue;
-          }
-
           console.log(`Discovering package: ${change.id}`);
 
-          // Fetch package info
+          // Fetch package info to get actual name and version
           const packageInfo = await this.fetchPackageInfo(change.id);
           if (packageInfo) {
             const fullPackageId = `${packageInfo.name}@${packageInfo.version}`;
 
+            // Skip if we've already discovered this exact version
             if (!this.state.discoveredPackages.has(fullPackageId)) {
               packagesToProcess.set(fullPackageId, packageInfo);
               this.state.discoveredPackages.add(fullPackageId);
@@ -104,6 +141,8 @@ export class NpmChangesFeed {
               if (packagesToProcess.size >= MAX_PACKAGES_PER_RUN) {
                 break;
               }
+            } else {
+              console.log(`Skipping already discovered package: ${fullPackageId}`);
             }
           }
 
@@ -118,7 +157,7 @@ export class NpmChangesFeed {
       }
 
       packages.push(...packagesToProcess.values());
-      await this.saveState();
+      await this.saveDiscoveryState();
 
       console.log(`Found ${packages.length} new packages to scan`);
 
@@ -146,7 +185,7 @@ export class NpmChangesFeed {
       return {
         name: data.name,
         version: data.version,
-        publishedAt: data.time?.[data.version],
+        publishedAt: data.time?.[data.version] || new Date().toISOString(),
         publisher: data._npmUser?.name || data.maintainers?.[0]?.name,
         description: data.description,
         repository: data.repository?.url,
@@ -160,9 +199,11 @@ export class NpmChangesFeed {
   }
 
   async getPendingScans(): Promise<PackageInfo[]> {
-    await this.loadState();
+    await this.loadDiscoveryState();
+    const scannedPackages = await this.loadScanningState();
+
     const packages: PackageInfo[] = [];
-    const pendingPackages = new Set([...this.state.discoveredPackages].filter(pkg => !this.state.scannedPackages.has(pkg)));
+    const pendingPackages = new Set([...this.state.discoveredPackages].filter(pkg => !scannedPackages.has(pkg)));
 
     console.log(`Found ${pendingPackages.size} packages pending scan`);
 
@@ -181,12 +222,12 @@ export class NpmChangesFeed {
   }
 
   async markPackagesScanned(packages: PackageInfo[]): Promise<void> {
-    await this.loadState();
+    const scannedPackages = await this.loadScanningState();
     for (const pkg of packages) {
       const fullPackageId = `${pkg.name}@${pkg.version}`;
-      this.state.scannedPackages.add(fullPackageId);
+      scannedPackages.add(fullPackageId);
     }
-    await this.saveState();
+    await this.saveScanningState(scannedPackages);
   }
 
   async markPackagesScannedWithRetry(packages: PackageInfo[], maxRetries: number = 3): Promise<void> {

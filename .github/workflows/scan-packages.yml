@@ -79,13 +79,13 @@ jobs:
           rm -rf temp/*
           sudo rm -rf /tmp/npm-scanner-*
 
-      - name: Commit state changes (Job ${{ matrix.job_id }})
+      - name: Commit scanning state changes (Job ${{ matrix.job_id }})
         run: |
           git config --local user.email "action@github.com"
           git config --local user.name "GitHub Action"
 
-          if [ -f data/state.json ]; then
-            echo "State file found, committing changes..."
+          if [ -f data/scanning-state.json ]; then
+            echo "Scanning state file found, committing changes..."
 
             # Retry logic for git operations with random delay
             max_attempts=5
@@ -94,17 +94,21 @@ jobs:
             while [ $attempt -le $max_attempts ]; do
               echo "Attempt $attempt/$max_attempts"
 
-              # Pull latest changes first
-              if git pull origin main --rebase; then
-                git add data/state.json
+              # Stage changes before pull
+              git add data/scanning-state.json
+
+              # Pull latest changes with merge strategy (not rebase to avoid unstaged changes issue)
+              if git pull origin main --no-rebase; then
+                # Re-add in case of merge conflicts resolution
+                git add data/scanning-state.json
 
                 if git diff --staged --quiet; then
-                  echo "No state changes to commit"
+                  echo "No scanning state changes to commit"
                   break
                 else
                   if git commit -m "Update scanning state from job ${{ matrix.job_id }} [skip ci]"; then
                     if git push; then
-                      echo "State successfully committed and pushed"
+                      echo "Scanning state successfully committed and pushed"
                       break
                     else
                       echo "Push failed, retrying..."
@@ -125,10 +129,10 @@ jobs:
             done
 
             if [ $attempt -gt $max_attempts ]; then
-              echo "Failed to commit after $max_attempts attempts"
+              echo "Failed to commit scanning state after $max_attempts attempts"
               exit 1
             fi
           else
-            echo "WARNING: No state file found - this may cause duplicate processing"
+            echo "WARNING: No scanning state file found - this may cause duplicate processing"
             exit 0
           fi

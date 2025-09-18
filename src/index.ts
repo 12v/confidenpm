@@ -231,15 +231,13 @@ async function main() {
           return;
         }
 
-        // Split packages across jobs
+        // Split packages using round-robin distribution for fairness
         const jobId = argv.jobId as number;
         const totalJobs = argv.totalJobs as number;
-        const packagesPerJob = Math.ceil(allPackages.length / totalJobs);
-        const startIndex = (jobId - 1) * packagesPerJob;
-        const endIndex = Math.min(startIndex + packagesPerJob, allPackages.length);
-        const packages = allPackages.slice(startIndex, endIndex);
+        const packages = allPackages.filter((_, index) => (index % totalJobs) === (jobId - 1));
 
-        console.log(`Job ${jobId}/${totalJobs}: Processing packages ${startIndex + 1}-${endIndex} of ${allPackages.length}`);
+        const packageNumbers = packages.map((_, i) => jobId + (i * totalJobs)).join(', ');
+        console.log(`Job ${jobId}/${totalJobs}: Processing ${packages.length} packages (${packageNumbers.length > 50 ? packageNumbers.substring(0, 50) + '...' : packageNumbers}) of ${allPackages.length} total`);
 
         if (packages.length > 0) {
           await scanner.scanBatch(packages);

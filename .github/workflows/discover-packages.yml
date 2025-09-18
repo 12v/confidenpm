@@ -43,23 +43,56 @@ jobs:
           GITHUB_REPOSITORY_OWNER: ${{ github.repository_owner }}
           GITHUB_ACTOR: ${{ github.actor }}
 
-      - name: Commit state changes
+      - name: Commit discovery state changes
         run: |
           git config --local user.email "action@github.com"
           git config --local user.name "GitHub Action"
 
-          if [ -f data/state.json ]; then
-            echo "State file found, committing changes..."
-            git add data/state.json
+          if [ -f data/discovery-state.json ]; then
+            echo "Discovery state file found, committing changes..."
 
-            if git diff --staged --quiet; then
-              echo "No state changes to commit"
-            else
-              git commit -m "Update package discovery state [skip ci]"
-              git push
-              echo "State successfully committed and pushed"
+            # Retry logic for git operations with random delay
+            max_attempts=5
+            attempt=1
+
+            while [ $attempt -le $max_attempts ]; do
+              echo "Attempt $attempt/$max_attempts"
+
+              # Pull latest changes first
+              if git pull origin main --no-rebase; then
+                git add data/discovery-state.json
+
+                if git diff --staged --quiet; then
+                  echo "No discovery state changes to commit"
+                  break
+                else
+                  if git commit -m "Update package discovery state [skip ci]"; then
+                    if git push; then
+                      echo "Discovery state successfully committed and pushed"
+                      break
+                    else
+                      echo "Push failed, retrying..."
+                    fi
+                  else
+                    echo "Commit failed, retrying..."
+                  fi
+                fi
+              else
+                echo "Pull failed, retrying..."
+              fi
+
+              # Exponential backoff with jitter (1-30 seconds)
+              delay=$((RANDOM % 30 + 1))
+              echo "Retrying in ${delay} seconds..."
+              sleep $delay
+              attempt=$((attempt + 1))
+            done
+
+            if [ $attempt -gt $max_attempts ]; then
+              echo "Failed to commit discovery state after $max_attempts attempts"
+              exit 1
             fi
           else
-            echo "WARNING: No state file found - this may cause duplicate processing"
+            echo "WARNING: No discovery state file found - this may cause duplicate processing"
             exit 0
           fi
