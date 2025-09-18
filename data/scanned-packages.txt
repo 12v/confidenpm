@@ -1788,3 +1788,7 @@ rehype-typeset@0.1.0
 @aws-amplify/graphql-transformer-core@3.4.4
 @infrab4a/connect-nestjs@2.3.4
 crudclimediator@1.0.0
+@maxim_mazurok/gapi.client.firebaseml-v1@0.1.20250917
+@aws-amplify/graphql-function-transformer@3.1.16
+@homefile/components-v2@2.29.1
+@confytome/markdown@1.7.10
