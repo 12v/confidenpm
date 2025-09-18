@@ -67,8 +67,9 @@ jobs:
                   rm -f data/discovered-packages-new.txt
                 fi
 
-                # Stage changes
-                git add data/last-sequence.txt data/discovered-packages.txt
+                # Stage changes (only add files that exist)
+                git add data/last-sequence.txt
+                [ -f data/discovered-packages.txt ] && git add data/discovered-packages.txt || true
 
                 if git diff --staged --quiet; then
                   echo "No discovery state changes to commit"
