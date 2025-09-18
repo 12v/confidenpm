@@ -1,15 +1,20 @@
-name: Scan Packages Matrix Job
+name: Scan Packages Single Job
 
 on:
   workflow_call:
+    inputs:
+      job-id:
+        description: 'Job ID for parallel processing (1-based)'
+        required: true
+        type: number
+      total-jobs:
+        description: 'Total number of parallel jobs'
+        required: true
+        type: number
 
 jobs:
   scan:
     runs-on: ubuntu-latest
-    strategy:
-      matrix:
-        job_id: [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20]
-      fail-fast: false
 
     steps:
       - name: Checkout repository
@@ -60,12 +65,12 @@ jobs:
           mkdir -p temp
           mkdir -p data
 
-      - name: Scan pending packages (Job ${{ matrix.job_id }}/20)
+      - name: Scan pending packages (Job ${{ inputs.job-id }}/${{ inputs.total-jobs }})
         run: |
           # Ensure Semgrep is in PATH
           export PATH="$HOME/.local/bin:$PATH"
           # Get and scan packages that were discovered but not yet scanned
-          node dist/index.js scan-pending --job-id ${{ matrix.job_id }} --total-jobs 20
+          node dist/index.js scan-pending --job-id ${{ inputs.job-id }} --total-jobs ${{ inputs.total-jobs }}
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           GITHUB_REPOSITORY: ${{ github.repository }}
@@ -79,10 +84,10 @@ jobs:
           rm -rf temp/*
           sudo rm -rf /tmp/npm-scanner-*
 
-      - name: Upload scanning results (Job ${{ matrix.job_id }})
+      - name: Upload scanning results (Job ${{ inputs.job-id }})
         uses: actions/upload-artifact@v4
         if: always()
         with:
-          name: scan-results-job-${{ matrix.job_id }}
+          name: scan-results-job-${{ inputs.job-id }}
           path: data/scanned-packages-new.txt
           if-no-files-found: ignore
