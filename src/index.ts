@@ -223,6 +223,11 @@ async function main() {
             describe: 'Total number of parallel jobs',
             type: 'number',
             default: 1
+          })
+          .option('max-packages', {
+            describe: 'Maximum number of packages to scan per job',
+            type: 'number',
+            default: 100
           });
       },
       async (argv) => {
@@ -238,7 +243,11 @@ async function main() {
         // Split packages using round-robin distribution for fairness
         const jobId = argv.jobId as number;
         const totalJobs = argv.totalJobs as number;
-        const packages = allPackages.filter((_, index) => (index % totalJobs) === (jobId - 1));
+        const maxPackages = argv.maxPackages as number;
+        const jobPackages = allPackages.filter((_, index) => (index % totalJobs) === (jobId - 1));
+
+        // Limit packages per job to maxPackages
+        const packages = jobPackages.slice(0, maxPackages);
 
         const packageNumbers = packages.map((_, i) => jobId + (i * totalJobs)).join(', ');
         console.log(`Job ${jobId}/${totalJobs}: Processing ${packages.length} packages (${packageNumbers.length > 50 ? packageNumbers.substring(0, 50) + '...' : packageNumbers}) of ${allPackages.length} total`);

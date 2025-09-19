@@ -101,7 +101,7 @@ jobs:
           # Ensure Semgrep is in PATH
           export PATH="$HOME/.local/bin:$PATH"
           # Get and scan packages that were discovered but not yet scanned
-          node dist/index.js scan-pending --job-id ${{ matrix.job_id }} --total-jobs 20
+          node dist/index.js scan-pending --job-id ${{ matrix.job_id }} --total-jobs 20 --max-packages 100
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           GITHUB_REPOSITORY: ${{ github.repository }}
