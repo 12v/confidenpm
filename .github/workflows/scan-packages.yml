@@ -14,7 +14,34 @@ permissions:
   issues: write
 
 jobs:
+  check:
+    runs-on: ubuntu-latest
+    outputs:
+      should_skip: ${{ steps.check_commit.outputs.should_skip }}
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Check for newer commit
+        id: check_commit
+        run: |
+          git fetch origin ${{ github.ref_name }}
+          LOCAL=$(git rev-parse HEAD)
+          REMOTE=$(git rev-parse origin/${{ github.ref_name }})
+          echo "Local:  $LOCAL"
+          echo "Remote: $REMOTE"
+
+          if [ "$LOCAL" != "$REMOTE" ]; then
+            echo "Newer commit found on remote. Will skip scanning."
+            echo "should_skip=true" >> $GITHUB_OUTPUT
+          else
+            echo "No newer commit found. Will proceed with scanning."
+            echo "should_skip=false" >> $GITHUB_OUTPUT
+          fi
+
   scan:
+    needs: check
+    if: needs.check.outputs.should_skip != 'true'
     strategy:
       matrix:
         job_id: [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20]
@@ -69,12 +96,12 @@ jobs:
           mkdir -p temp
           mkdir -p data
 
-      - name: Scan pending packages (Job ${{ matrix.job-id }}/20)
+      - name: Scan pending packages (Job ${{ matrix.job_id }}/20)
         run: |
           # Ensure Semgrep is in PATH
           export PATH="$HOME/.local/bin:$PATH"
           # Get and scan packages that were discovered but not yet scanned
-          node dist/index.js scan-pending --job-id ${{ matrix.job-id }} --total-jobs 20
+          node dist/index.js scan-pending --job-id ${{ matrix.job_id }} --total-jobs 20
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           GITHUB_REPOSITORY: ${{ github.repository }}
@@ -88,18 +115,18 @@ jobs:
           rm -rf temp/*
           sudo rm -rf /tmp/npm-scanner-*
 
-      - name: Upload scanning results (Job ${{ matrix.job-id }})
+      - name: Upload scanning results (Job ${{ matrix.job_id }})
         uses: actions/upload-artifact@v4
         if: always()
         with:
-          name: scan-results-job-${{ matrix.job-id }}
+          name: scan-results-job-${{ matrix.job_id }}
           path: data/scanned-packages-new.txt
           if-no-files-found: ignore
 
   consolidate:
-    needs: scan
+    needs: [check, scan]
     runs-on: ubuntu-latest
-    if: always()
+    if: always() && needs.check.outputs.should_skip != 'true'
 
     steps:
       - name: Checkout repository
