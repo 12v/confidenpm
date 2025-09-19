@@ -18,11 +18,83 @@ jobs:
     strategy:
       matrix:
         job_id: [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20]
-      fail-fast: false
-    uses: ./.github/workflows/scan-packages-single.yml
-    with:
-      job-id: ${{ matrix.job_id }}
-      total-jobs: 20
+      fail-fast: true
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+
+      - name: Install system dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y curl
+
+      - name: Install Trivy
+        run: |
+          sudo apt-get install wget apt-transport-https gnupg lsb-release
+          wget -qO - https://aquasecurity.github.io/trivy-repo/deb/public.key | sudo apt-key add -
+          echo "deb https://aquasecurity.github.io/trivy-repo/deb $(lsb_release -sc) main" | sudo tee -a /etc/apt/sources.list.d/trivy.list
+          sudo apt-get update
+          sudo apt-get install trivy
+
+      - name: Install Semgrep
+        run: |
+          python3 -m pip install --user semgrep
+          echo "$HOME/.local/bin" >> $GITHUB_PATH
+
+      - name: Verify Semgrep installation
+        run: |
+          export PATH="$HOME/.local/bin:$PATH"
+          which semgrep
+          semgrep --version
+
+      - name: Install TruffleHog
+        run: |
+          curl -sSfL https://raw.githubusercontent.com/trufflesecurity/trufflehog/main/scripts/install.sh | sh -s -- -b /usr/local/bin
+
+      - name: Install project dependencies
+        run: npm ci
+
+      - name: Build project
+        run: npm run build
+
+      - name: Create temp directories
+        run: |
+          mkdir -p temp
+          mkdir -p data
+
+      - name: Scan pending packages (Job ${{ matrix.job-id }}/20)
+        run: |
+          # Ensure Semgrep is in PATH
+          export PATH="$HOME/.local/bin:$PATH"
+          # Get and scan packages that were discovered but not yet scanned
+          node dist/index.js scan-pending --job-id ${{ matrix.job-id }} --total-jobs 20
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GITHUB_REPOSITORY: ${{ github.repository }}
+          GITHUB_REPOSITORY_OWNER: ${{ github.repository_owner }}
+          GITHUB_ACTOR: ${{ github.actor }}
+          DISABLE_GITHUB_ISSUES: true
+
+      - name: Cleanup temporary files
+        if: always()
+        run: |
+          rm -rf temp/*
+          sudo rm -rf /tmp/npm-scanner-*
+
+      - name: Upload scanning results (Job ${{ matrix.job-id }})
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: scan-results-job-${{ matrix.job-id }}
+          path: data/scanned-packages-new.txt
+          if-no-files-found: ignore
 
   consolidate:
     needs: scan
