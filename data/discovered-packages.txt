@@ -41390,3 +41390,17 @@ ensync-client-sdk@0.0.25
 @marcbachmann/cel-js@2.0.4
 metasweep@1.0.0
 @atlassian-test-prod/hello-world@1.0.0-50834
+agent-files-watcher@1.0.1
+@yipe/dice@0.2.1
+@iyawoqu/dxxtool_share@3.0.16622
+@hawksightco/hawk-sdk@1.3.81
+@indra.ai/deva.report@0.0.64
+@code-essentials/tsconfig@1.0.2
+ripple-tooling@1.0.1
+@code-essentials/utils@1.0.1
+@bopmite/bop-track@0.1.3
+ember-drag-sort@4.1.0
+@richardpickett/config-js@1.0.22
+jbmiq8eysyxv@2.24.18
+huds@2.1.11
+figue@3.1.1
